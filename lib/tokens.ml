@@ -1,0 +1,43 @@
+type token = Parser.token
+
+let to_string = function
+  | Parser.INT n -> string_of_int n
+  | Parser.BOOL b -> string_of_bool b
+  | Parser.STRING s -> Printf.sprintf "%S" s
+  | Parser.IDENT id -> id
+  | Parser.LET -> "let"
+  | Parser.REC -> "rec"
+  | Parser.IN -> "in"
+  | Parser.IF -> "if"
+  | Parser.THEN -> "then"
+  | Parser.ELSE -> "else"
+  | Parser.FUN -> "fun"
+  | Parser.MATCH -> "match"
+  | Parser.WITH -> "with"
+  | Parser.PLUS -> "+"
+  | Parser.MINUS -> "-"
+  | Parser.STAR -> "*"
+  | Parser.SLASH -> "/"
+  | Parser.PERCENT -> "%"
+  | Parser.EQEQ -> "=="
+  | Parser.NOTEQ -> "!="
+  | Parser.LT -> "<"
+  | Parser.LTE -> "<="
+  | Parser.GT -> ">"
+  | Parser.GTE -> ">="
+  | Parser.AND -> "&&"
+  | Parser.OR -> "||"
+  | Parser.NOT -> "!"
+  | Parser.EQUAL -> "="
+  | Parser.ARROW -> "->"
+  | Parser.COLON -> ":"
+  | Parser.SEMICOLON -> ";"
+  | Parser.COMMA -> ","
+  | Parser.LPAREN -> "("
+  | Parser.RPAREN -> ")"
+  | Parser.LBRACE -> "{"
+  | Parser.RBRACE -> "}"
+  | Parser.LBRACKET -> "["
+  | Parser.RBRACKET -> "]"
+  | Parser.BAR -> "|"
+  | Parser.EOF -> "<eof>"

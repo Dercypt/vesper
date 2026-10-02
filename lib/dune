@@ -1,5 +1,10 @@
 (library
  (name vesper)
  (public_name vesper)
- (modules ast)
  (libraries))
+
+(menhir
+ (modules parser))
+
+(ocamllex
+ (modules lexer))
