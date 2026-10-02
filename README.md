@@ -37,3 +37,7 @@ Run the automated governance verification harness:
 * `lib/`: Core compiler and runtime libraries (AST, parser, lexer, typechecker, evaluator).
 * `bin/`: CLI driver and executable entry points.
 * `tests/laws/`: Continuous invariant regression suite verifying [`LAWS.md`](file:///Users/zyndrex/vesper-sandbox/LAWS.md).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

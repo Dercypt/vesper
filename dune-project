@@ -1,6 +1,7 @@
 (lang dune 3.14)
 (name vesper)
 (generate_opam_files true)
+(license MIT)
 
 (package
  (name vesper)
