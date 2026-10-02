@@ -1,4 +1,4 @@
 (test
  (name test_laws)
- (modules test_laws)
+ (modules test_laws test_law2_roundtrip)
  (libraries vesper alcotest))

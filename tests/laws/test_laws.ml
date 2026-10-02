@@ -38,6 +38,7 @@ let () =
           test_case "Adversarial input yields Result.Error without panic" `Quick
             test_law1_no_host_crashes_on_invalid_spans;
         ] );
+      ("Law 2: Invertible Concrete Syntax", Test_law2_roundtrip.tests);
       ( "Law 3: Strict Source Provenance",
         [
           test_case "Valid AST nodes preserve source location spans" `Quick
