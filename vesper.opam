@@ -6,7 +6,7 @@ license: "MIT"
 depends: [
   "ocaml" {>= "5.0.0"}
   "dune" {>= "3.14" & >= "3.14"}
-  "menhir"
+  "menhir" {>= "20180523"}
   "alcotest" {with-test}
   "ocamlformat" {with-dev-setup}
   "odoc" {with-doc}
