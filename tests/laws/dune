@@ -1,0 +1,4 @@
+(test
+ (name test_laws)
+ (modules test_laws)
+ (libraries vesper alcotest))
