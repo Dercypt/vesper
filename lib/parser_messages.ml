@@ -1,0 +1,52 @@
+(* This file was auto-generated based on "lib/parser_messages.messages". *)
+
+(* Please note that the function [message] can raise [Not_found]. *)
+
+let message =
+ fun s ->
+  match s with
+  | 79 -> "Expected declaration or expression following \";\" separator.\n"
+  | 75 ->
+      "Unexpected token after expression declaration; expected \";\" or end of file.\n"
+  | 73 -> "Unexpected token after let declaration; expected \";\" or end of file.\n"
+  | 72 -> "Expected expression after \"=\" in declaration.\n"
+  | 70 -> "Expected \"=\" or parameter identifier in declaration.\n"
+  | 69 -> "Expected identifier after \"let rec\" in declaration.\n"
+  | 68 -> "Expected identifier or \"rec\" after \"let\" in declaration.\n"
+  | 67 -> "Expected top-level declaration or expression.\n"
+  | 65 -> "Unexpected token following expression.\n"
+  | 60 -> "Expected closing parenthesis \")\".\n"
+  | 58 -> "Expected body expression following \"in\" keyword.\n"
+  | 57 -> "Expected \"in\" keyword following let binding value expression.\n"
+  | 55 -> "Expected else-branch expression after \"else\" keyword.\n"
+  | 54 -> "Expected \"else\" keyword following then-branch expression.\n"
+  | 53 -> "Expected then-branch expression after \"then\" keyword.\n"
+  | 52 -> "Expected \"then\" keyword following \"if\" condition expression.\n"
+  | 50 -> "Expected expression after \"&&\" operator.\n"
+  | 48 -> "Expected expression after \"==\" operator.\n"
+  | 46 -> "Expected expression after \">\" operator.\n"
+  | 44 -> "Expected expression after \">=\" operator.\n"
+  | 42 -> "Expected expression after \"<\" operator.\n"
+  | 40 -> "Expected expression after \"<=\" operator.\n"
+  | 38 -> "Expected expression after \"-\" operator.\n"
+  | 36 -> "Expected expression after \"!=\" operator.\n"
+  | 34 -> "Expected expression after \"||\" operator.\n"
+  | 32 -> "Expected expression after \"%\" operator.\n"
+  | 30 -> "Expected expression after \"+\" operator.\n"
+  | 28 -> "Expected expression after \"/\" operator.\n"
+  | 26 -> "Unexpected token following expression in function application.\n"
+  | 23 -> "Expected expression after \"*\" operator.\n"
+  | 20 -> "Expected function body expression after \"->\".\n"
+  | 17 -> "Expected \"->\" or additional parameter identifier after parameter.\n"
+  | 16 -> "Expected a parameter identifier after \"fun\".\n"
+  | 14 -> "Expected condition expression after \"if\".\n"
+  | 12 -> "Expected a value expression after \"=\" in let binding.\n"
+  | 9 -> "Expected \"=\" or parameter identifier in parameter list.\n"
+  | 8 -> "Expected \"=\" or parameter identifier after binding name.\n"
+  | 7 -> "Expected a function identifier after \"let rec\".\n"
+  | 5 -> "Expected a variable identifier after \"let\".\n"
+  | 4 -> "Expected an expression after \"(\".\n"
+  | 3 -> "Expected an expression after arithmetic negation \"-\".\n"
+  | 2 -> "Expected an expression after logical not operator \"!\".\n"
+  | 0 -> "Expected an expression (literal, identifier, parenthesis, let, or if).\n"
+  | _ -> raise Not_found

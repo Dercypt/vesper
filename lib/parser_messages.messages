@@ -1,0 +1,656 @@
+expr_entry: WITH
+##
+## Ends in an error in state: 0.
+##
+## expr_entry' -> . expr_entry [ # ]
+##
+## The known suffix of the stack is as follows:
+##
+##
+
+Expected an expression (literal, identifier, parenthesis, let, or if).
+
+program: NOT WITH
+##
+## Ends in an error in state: 2.
+##
+## expr -> NOT . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## NOT
+##
+
+Expected an expression after logical not operator "!".
+
+program: MINUS WITH
+##
+## Ends in an error in state: 3.
+##
+## expr -> MINUS . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## MINUS
+##
+
+Expected an expression after arithmetic negation "-".
+
+program: LPAREN WITH
+##
+## Ends in an error in state: 4.
+##
+## atomic_expr -> LPAREN . expr RPAREN [ THEN STRING STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT LPAREN INT IN IDENT GTE GT EQEQ EOF ELSE BOOL AND ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN
+##
+
+Expected an expression after "(".
+
+expr_entry: LET WITH
+##
+## Ends in an error in state: 5.
+##
+## expr -> LET . is_rec IDENT var_list EQUAL expr IN expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## LET
+##
+
+Expected a variable identifier after "let".
+
+expr_entry: LET REC WITH
+##
+## Ends in an error in state: 7.
+##
+## expr -> LET is_rec . IDENT var_list EQUAL expr IN expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## LET is_rec
+##
+
+Expected a function identifier after "let rec".
+
+expr_entry: LET IDENT WITH
+##
+## Ends in an error in state: 8.
+##
+## expr -> LET is_rec IDENT . var_list EQUAL expr IN expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## LET is_rec IDENT
+##
+
+Expected "=" or parameter identifier after binding name.
+
+program: LET IDENT IDENT WITH
+##
+## Ends in an error in state: 9.
+##
+## var_list -> IDENT . var_list [ EQUAL ]
+##
+## The known suffix of the stack is as follows:
+## IDENT
+##
+
+Expected "=" or parameter identifier in parameter list.
+
+expr_entry: LET IDENT EQUAL WITH
+##
+## Ends in an error in state: 12.
+##
+## expr -> LET is_rec IDENT var_list EQUAL . expr IN expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## LET is_rec IDENT var_list EQUAL
+##
+
+Expected a value expression after "=" in let binding.
+
+program: IF WITH
+##
+## Ends in an error in state: 14.
+##
+## expr -> IF . expr THEN expr ELSE expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## IF
+##
+
+Expected condition expression after "if".
+
+program: FUN WITH
+##
+## Ends in an error in state: 16.
+##
+## expr -> FUN . var_nonempty_list ARROW expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## FUN
+##
+
+Expected a parameter identifier after "fun".
+
+program: FUN IDENT WITH
+##
+## Ends in an error in state: 17.
+##
+## var_nonempty_list -> IDENT . [ ARROW ]
+## var_nonempty_list -> IDENT . var_nonempty_list [ ARROW ]
+##
+## The known suffix of the stack is as follows:
+## IDENT
+##
+
+Expected "->" or additional parameter identifier after parameter.
+
+program: FUN IDENT ARROW WITH
+##
+## Ends in an error in state: 20.
+##
+## expr -> FUN var_nonempty_list ARROW . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## FUN var_nonempty_list ARROW
+##
+
+Expected function body expression after "->".
+
+expr_entry: BOOL STAR WITH
+##
+## Ends in an error in state: 23.
+##
+## expr -> expr STAR . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr STAR
+##
+
+Expected expression after "*" operator.
+
+program: BOOL WITH
+##
+## Ends in an error in state: 26.
+##
+## app_expr -> app_expr . atomic_expr [ THEN STRING STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT LPAREN INT IN IDENT GTE GT EQEQ EOF ELSE BOOL AND ]
+## expr -> app_expr . [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## app_expr
+##
+
+Unexpected token following expression in function application.
+
+expr_entry: BOOL SLASH WITH
+##
+## Ends in an error in state: 28.
+##
+## expr -> expr SLASH . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr SLASH
+##
+
+Expected expression after "/" operator.
+
+expr_entry: BOOL PLUS WITH
+##
+## Ends in an error in state: 30.
+##
+## expr -> expr PLUS . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr PLUS
+##
+
+Expected expression after "+" operator.
+
+expr_entry: BOOL PERCENT WITH
+##
+## Ends in an error in state: 32.
+##
+## expr -> expr PERCENT . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr PERCENT
+##
+
+Expected expression after "%" operator.
+
+expr_entry: BOOL OR WITH
+##
+## Ends in an error in state: 34.
+##
+## expr -> expr OR . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr OR
+##
+
+Expected expression after "||" operator.
+
+expr_entry: BOOL NOTEQ WITH
+##
+## Ends in an error in state: 36.
+##
+## expr -> expr NOTEQ . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr NOTEQ
+##
+
+Expected expression after "!=" operator.
+
+expr_entry: BOOL MINUS WITH
+##
+## Ends in an error in state: 38.
+##
+## expr -> expr MINUS . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr MINUS
+##
+
+Expected expression after "-" operator.
+
+expr_entry: BOOL LTE WITH
+##
+## Ends in an error in state: 40.
+##
+## expr -> expr LTE . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr LTE
+##
+
+Expected expression after "<=" operator.
+
+expr_entry: BOOL LT WITH
+##
+## Ends in an error in state: 42.
+##
+## expr -> expr LT . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr LT
+##
+
+Expected expression after "<" operator.
+
+expr_entry: BOOL GTE WITH
+##
+## Ends in an error in state: 44.
+##
+## expr -> expr GTE . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr GTE
+##
+
+Expected expression after ">=" operator.
+
+expr_entry: BOOL GT WITH
+##
+## Ends in an error in state: 46.
+##
+## expr -> expr GT . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr GT
+##
+
+Expected expression after ">" operator.
+
+expr_entry: BOOL EQEQ WITH
+##
+## Ends in an error in state: 48.
+##
+## expr -> expr EQEQ . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr EQEQ
+##
+
+Expected expression after "==" operator.
+
+expr_entry: BOOL AND WITH
+##
+## Ends in an error in state: 50.
+##
+## expr -> expr AND . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## expr AND
+##
+
+Expected expression after "&&" operator.
+
+program: IF BOOL SEMICOLON
+##
+## Ends in an error in state: 52.
+##
+## expr -> IF expr . THEN expr ELSE expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+## expr -> expr . PLUS expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . MINUS expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . STAR expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . SLASH expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . PERCENT expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . EQEQ expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . NOTEQ expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . LT expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . LTE expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . GT expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . GTE expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . AND expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . OR expr [ THEN STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+##
+## The known suffix of the stack is as follows:
+## IF expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 26, spurious reduction of production expr -> app_expr
+##
+
+Expected "then" keyword following "if" condition expression.
+
+program: IF BOOL THEN WITH
+##
+## Ends in an error in state: 53.
+##
+## expr -> IF expr THEN . expr ELSE expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## IF expr THEN
+##
+
+Expected then-branch expression after "then" keyword.
+
+program: IF BOOL THEN BOOL THEN
+##
+## Ends in an error in state: 54.
+##
+## expr -> IF expr THEN expr . ELSE expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+## expr -> expr . PLUS expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . MINUS expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . STAR expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . SLASH expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . PERCENT expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . EQEQ expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . NOTEQ expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . LT expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . LTE expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . GT expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . GTE expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . AND expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+## expr -> expr . OR expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## IF expr THEN expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 26, spurious reduction of production expr -> app_expr
+##
+
+Expected "else" keyword following then-branch expression.
+
+program: IF BOOL THEN BOOL ELSE WITH
+##
+## Ends in an error in state: 55.
+##
+## expr -> IF expr THEN expr ELSE . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## IF expr THEN expr ELSE
+##
+
+Expected else-branch expression after "else" keyword.
+
+expr_entry: LET IDENT EQUAL BOOL THEN
+##
+## Ends in an error in state: 57.
+##
+## expr -> LET is_rec IDENT var_list EQUAL expr . IN expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+## expr -> expr . PLUS expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . MINUS expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . STAR expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . SLASH expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . PERCENT expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . EQEQ expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . NOTEQ expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . LT expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . LTE expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . GT expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . GTE expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . AND expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+## expr -> expr . OR expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ AND ]
+##
+## The known suffix of the stack is as follows:
+## LET is_rec IDENT var_list EQUAL expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 26, spurious reduction of production expr -> app_expr
+##
+
+Expected "in" keyword following let binding value expression.
+
+program: LET IDENT EQUAL BOOL IN WITH
+##
+## Ends in an error in state: 58.
+##
+## expr -> LET is_rec IDENT var_list EQUAL expr IN . expr [ THEN STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF ELSE AND ]
+##
+## The known suffix of the stack is as follows:
+## LET is_rec IDENT var_list EQUAL expr IN
+##
+
+Expected body expression following "in" keyword.
+
+program: LPAREN BOOL THEN
+##
+## Ends in an error in state: 60.
+##
+## atomic_expr -> LPAREN expr . RPAREN [ THEN STRING STAR SLASH SEMICOLON RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT LPAREN INT IN IDENT GTE GT EQEQ EOF ELSE BOOL AND ]
+## expr -> expr . PLUS expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . MINUS expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . STAR expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . SLASH expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . PERCENT expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . EQEQ expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . NOTEQ expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . LT expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . LTE expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . GT expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . GTE expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . AND expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+## expr -> expr . OR expr [ STAR SLASH RPAREN PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ AND ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 26, spurious reduction of production expr -> app_expr
+##
+
+Expected closing parenthesis ")".
+
+expr_entry: BOOL THEN
+##
+## Ends in an error in state: 65.
+##
+## expr -> expr . PLUS expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . MINUS expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . STAR expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . SLASH expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . PERCENT expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . EQEQ expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . NOTEQ expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . LT expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . LTE expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . GT expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . GTE expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . AND expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . OR expr [ STAR SLASH PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr_entry -> expr . EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 26, spurious reduction of production expr -> app_expr
+##
+
+Unexpected token following expression.
+
+program: WITH
+##
+## Ends in an error in state: 67.
+##
+## program' -> . program [ # ]
+##
+## The known suffix of the stack is as follows:
+##
+##
+
+Expected top-level declaration or expression.
+
+program: LET WITH
+##
+## Ends in an error in state: 68.
+##
+## decl -> LET . is_rec IDENT var_list EQUAL expr [ SEMICOLON EOF ]
+## expr -> LET . is_rec IDENT var_list EQUAL expr IN expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## LET
+##
+
+Expected identifier or "rec" after "let" in declaration.
+
+program: LET REC WITH
+##
+## Ends in an error in state: 69.
+##
+## decl -> LET is_rec . IDENT var_list EQUAL expr [ SEMICOLON EOF ]
+## expr -> LET is_rec . IDENT var_list EQUAL expr IN expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## LET is_rec
+##
+
+Expected identifier after "let rec" in declaration.
+
+program: LET IDENT WITH
+##
+## Ends in an error in state: 70.
+##
+## decl -> LET is_rec IDENT . var_list EQUAL expr [ SEMICOLON EOF ]
+## expr -> LET is_rec IDENT . var_list EQUAL expr IN expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## LET is_rec IDENT
+##
+
+Expected "=" or parameter identifier in declaration.
+
+program: LET IDENT EQUAL WITH
+##
+## Ends in an error in state: 72.
+##
+## decl -> LET is_rec IDENT var_list EQUAL . expr [ SEMICOLON EOF ]
+## expr -> LET is_rec IDENT var_list EQUAL . expr IN expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## LET is_rec IDENT var_list EQUAL
+##
+
+Expected expression after "=" in declaration.
+
+program: LET IDENT EQUAL BOOL THEN
+##
+## Ends in an error in state: 73.
+##
+## decl -> LET is_rec IDENT var_list EQUAL expr . [ SEMICOLON EOF ]
+## expr -> LET is_rec IDENT var_list EQUAL expr . IN expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . PLUS expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . MINUS expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . STAR expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . SLASH expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . PERCENT expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . EQEQ expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . NOTEQ expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . LT expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . LTE expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . GT expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . GTE expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . AND expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+## expr -> expr . OR expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT IN GTE GT EQEQ EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## LET is_rec IDENT var_list EQUAL expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 26, spurious reduction of production expr -> app_expr
+##
+
+Unexpected token after let declaration; expected ";" or end of file.
+
+program: BOOL THEN
+##
+## Ends in an error in state: 75.
+##
+## decl -> expr . [ SEMICOLON EOF ]
+## expr -> expr . PLUS expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . MINUS expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . STAR expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . SLASH expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . PERCENT expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . EQEQ expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . NOTEQ expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . LT expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . LTE expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . GT expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . GTE expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . AND expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+## expr -> expr . OR expr [ STAR SLASH SEMICOLON PLUS PERCENT OR NOTEQ MINUS LTE LT GTE GT EQEQ EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 26, spurious reduction of production expr -> app_expr
+##
+
+Unexpected token after expression declaration; expected ";" or end of file.
+
+program: BOOL SEMICOLON WITH
+##
+## Ends in an error in state: 79.
+##
+## decl_seq -> decl SEMICOLON . decl_seq [ EOF ]
+##
+## The known suffix of the stack is as follows:
+## decl SEMICOLON
+##
+
+Expected declaration or expression following ";" separator.
+
