@@ -26,7 +26,11 @@ rule token = parse
   | "//" [^ '\n']*
       { token lexbuf }
   | "/*"
-      { block_comment 1 lexbuf; token lexbuf }
+      {
+        let start_pos = Lexing.lexeme_start_p lexbuf in
+        block_comment start_pos 1 lexbuf;
+        token lexbuf
+      }
   | digit+ as raw
       {
         match int_of_string_opt raw with
@@ -154,14 +158,17 @@ and string_literal start_pos buf = parse
         raise (Error { Ast.span; message = "Unterminated string literal" })
       }
 
-and block_comment depth = parse
+and block_comment start_pos depth = parse
   | "/*"
-      { block_comment (depth + 1) lexbuf }
+      { block_comment start_pos (depth + 1) lexbuf }
   | "*/"
-      { if depth = 1 then () else block_comment (depth - 1) lexbuf }
+      { if depth = 1 then () else block_comment start_pos (depth - 1) lexbuf }
   | '\n'
-      { Lexing.new_line lexbuf; block_comment depth lexbuf }
+      { Lexing.new_line lexbuf; block_comment start_pos depth lexbuf }
   | eof
-      { lex_error lexbuf "Unclosed block comment" }
+      {
+        let span = Ast.span_of_positions (start_pos, Lexing.lexeme_end_p lexbuf) in
+        raise (Error { Ast.span; message = "Unclosed block comment" })
+      }
   | _
-      { block_comment depth lexbuf }
+      { block_comment start_pos depth lexbuf }

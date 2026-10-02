@@ -1,10 +1,11 @@
 (library
  (name vesper)
  (public_name vesper)
- (libraries))
+ (libraries menhirLib))
 
 (menhir
- (modules parser))
+ (modules parser)
+ (flags --table))
 
 (ocamllex
  (modules lexer))
