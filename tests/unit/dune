@@ -2,3 +2,8 @@
  (name test_typechecker)
  (modules test_typechecker)
  (libraries vesper alcotest))
+
+(test
+ (name test_patterns)
+ (modules test_patterns)
+ (libraries vesper alcotest))
