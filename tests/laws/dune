@@ -1,4 +1,10 @@
 (test
  (name test_laws)
- (modules test_laws test_law1_diagnosability test_law2_roundtrip)
+ (modules
+  test_laws
+  test_law1_diagnosability
+  test_law2_roundtrip
+  test_law3_provenance
+  test_law4_idempotence
+  test_law5_determinism)
  (libraries vesper alcotest))
