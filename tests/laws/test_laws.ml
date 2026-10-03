@@ -6,4 +6,5 @@ let () =
       ("Law 2: Invertible Concrete Syntax", Test_law2_roundtrip.tests);
       ("Law 3: Strict Source Provenance", Test_law3_provenance.tests);
       ("Law 4: Idempotent Normalization & Desugaring", Test_law4_idempotence.tests);
+      ("Law 5: Deterministic Evaluation & Sound Termination", Test_law5_determinism.tests);
     ]
