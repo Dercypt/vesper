@@ -12,6 +12,10 @@ type t =
   | E1006_integer_overflow
   | E1007_invalid_span
   | E1008_syntax_error
+  | E2001_type_error
+  | E3001_non_exhaustive_match
+  | E3002_redundant_pattern
+  | E3003_pattern_type_error
 
 val to_code_string : t -> string
 (** Returns the formal string code (e.g., "E1001"). *)

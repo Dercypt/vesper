@@ -9,6 +9,10 @@ type t =
   | E1006_integer_overflow
   | E1007_invalid_span
   | E1008_syntax_error
+  | E2001_type_error
+  | E3001_non_exhaustive_match
+  | E3002_redundant_pattern
+  | E3003_pattern_type_error
 
 let to_code_string = function
   | E0001_io_error -> "E0001"
@@ -21,6 +25,10 @@ let to_code_string = function
   | E1006_integer_overflow -> "E1006"
   | E1007_invalid_span -> "E1007"
   | E1008_syntax_error -> "E1008"
+  | E2001_type_error -> "E2001"
+  | E3001_non_exhaustive_match -> "E3001"
+  | E3002_redundant_pattern -> "E3002"
+  | E3003_pattern_type_error -> "E3003"
 
 let to_description = function
   | E0001_io_error -> "I/O Error"
@@ -33,6 +41,10 @@ let to_description = function
   | E1006_integer_overflow -> "Integer Literal Overflow"
   | E1007_invalid_span -> "Invalid Source Span"
   | E1008_syntax_error -> "Syntax Error"
+  | E2001_type_error -> "Type Error"
+  | E3001_non_exhaustive_match -> "Non-Exhaustive Pattern Match"
+  | E3002_redundant_pattern -> "Redundant Pattern Clause"
+  | E3003_pattern_type_error -> "Pattern Type Mismatch"
 
 let pp fmt code = Format.pp_print_string fmt (to_code_string code)
 let to_string code = to_code_string code
