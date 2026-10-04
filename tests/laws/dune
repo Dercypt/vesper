@@ -6,5 +6,6 @@
   test_law2_roundtrip
   test_law3_provenance
   test_law4_idempotence
-  test_law5_determinism)
+  test_law5_determinism
+  test_vm_determinism)
  (libraries vesper alcotest))

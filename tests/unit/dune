@@ -14,3 +14,8 @@
  (deps
   (source_tree ../fixtures))
  (libraries vesper alcotest))
+
+(test
+ (name test_bytecode_vm)
+ (modules test_bytecode_vm)
+ (libraries vesper alcotest))
