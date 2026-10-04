@@ -16,6 +16,10 @@ type t =
   | E3001_non_exhaustive_match
   | E3002_redundant_pattern
   | E3003_pattern_type_error
+  | E4001_cyclic_dependency
+  | E4002_unbound_module
+  | E4003_interface_mismatch
+  | E4004_private_member_access
 
 val to_code_string : t -> string
 (** Returns the formal string code (e.g., "E1001"). *)
