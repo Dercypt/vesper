@@ -7,3 +7,10 @@
  (name test_patterns)
  (modules test_patterns)
  (libraries vesper alcotest))
+
+(test
+ (name test_modules)
+ (modules test_modules)
+ (deps
+  (source_tree ../fixtures))
+ (libraries vesper alcotest))
