@@ -1,0 +1,3 @@
+open Math
+
+let double_add x y = add x y + add x y;

@@ -1,0 +1,4 @@
+type t = int
+let pi = 3;
+let secret_offset = 1;
+let add x y = x + y;
