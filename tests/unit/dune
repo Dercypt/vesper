@@ -19,3 +19,8 @@
  (name test_bytecode_vm)
  (modules test_bytecode_vm)
  (libraries vesper alcotest))
+
+(test
+ (name test_stdlib)
+ (modules test_stdlib)
+ (libraries vesper alcotest))
