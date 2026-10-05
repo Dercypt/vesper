@@ -8,4 +8,5 @@ let () =
       ("Law 4: Idempotent Normalization & Desugaring", Test_law4_idempotence.tests);
       ("Law 5: Deterministic Evaluation & Sound Termination", Test_law5_determinism.tests);
       ("Phase 8: VM Determinism & Dual-Execution", Test_vm_determinism.tests);
+      ("Phase 9: Sandboxed I/O Isolation & Replay", Test_io_isolation.tests);
     ]
