@@ -8,5 +8,6 @@
   test_law4_idempotence
   test_law5_determinism
   test_vm_determinism
-  test_io_isolation)
+  test_io_isolation
+  test_tooling_laws)
  (libraries vesper alcotest))

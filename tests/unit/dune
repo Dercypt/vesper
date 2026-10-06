@@ -24,3 +24,13 @@
  (name test_stdlib)
  (modules test_stdlib)
  (libraries vesper alcotest))
+
+(test
+ (name test_lsp)
+ (modules test_lsp)
+ (libraries vesper alcotest))
+
+(test
+ (name test_cli_repl)
+ (modules test_cli_repl)
+ (libraries vesper alcotest))

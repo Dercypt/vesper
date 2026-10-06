@@ -1,1 +1,1 @@
-let () = exit (Vesper.Driver.run_cli Sys.argv)
+let () = exit (Vesper.Cli.main Sys.argv)
