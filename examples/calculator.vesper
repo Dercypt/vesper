@@ -1,0 +1,131 @@
+// =========================================================================
+// VESPER SCIENTIFIC CALCULATOR WITH ASCII TERMINAL UI
+// Written in Pure Vesper
+// =========================================================================
+
+// --- 1. Arithmetic & Scientific Math Engine ---
+
+let add a b = a + b;
+let sub a b = a - b;
+let mul a b = a * b;
+let div a b = if b == 0 then 0 else a / b;
+let modulo a b = if b == 0 then 0 else a % b;
+
+let rec pow b e =
+  if e <= 0 then 1
+  else b * pow b (e - 1);
+
+let rec fact n =
+  if n <= 1 then 1
+  else n * fact (n - 1);
+
+let rec isqrt_guess n g =
+  if g * g <= n && (g + 1) * (g + 1) > n then g
+  else if g == 0 then 0
+  else isqrt_guess n ((g + n / g) / 2);
+
+let isqrt n =
+  if n <= 0 then 0
+  else isqrt_guess n (n / 2 + 1);
+
+let rec gcd a b =
+  if b == 0 then a
+  else gcd b (a % b);
+
+let lcm a b =
+  if a == 0 || b == 0 then 0
+  else (a * b) / (gcd a b);
+
+let rec fib n =
+  if n <= 0 then 0
+  else if n == 1 then 1
+  else fib (n - 1) + fib (n - 2);
+
+// --- 2. String Conversion & Formatting Utilities ---
+
+let digit_to_str d =
+  if d == 0 then "0"
+  else if d == 1 then "1"
+  else if d == 2 then "2"
+  else if d == 3 then "3"
+  else if d == 4 then "4"
+  else if d == 5 then "5"
+  else if d == 6 then "6"
+  else if d == 7 then "7"
+  else if d == 8 then "8"
+  else if d == 9 then "9"
+  else "?";
+
+let rec int_to_str_pos n =
+  if n < 10 then digit_to_str n
+  else "" + (int_to_str_pos (n / 10)) + (digit_to_str (n % 10));
+
+let int_to_str n =
+  if n < 0 then "-" + (int_to_str_pos (-n))
+  else int_to_str_pos n;
+
+// --- 3. Live Demonstration Calculations ---
+
+let c1_expr = "125 + 75";
+let c1_ans = add 125 75;
+
+let c2_expr = "48 * 25";
+let c2_ans = mul 48 25;
+
+let c3_expr = "pow 2 10";
+let c3_ans = pow 2 10;
+
+let c4_expr = "fact 6";
+let c4_ans = fact 6;
+
+let c5_expr = "isqrt 65536";
+let c5_ans = isqrt 65536;
+
+let c6_expr = "gcd 1071 462";
+let c6_ans = gcd 1071 462;
+
+let c7_expr = "lcm 24 36";
+let c7_ans = lcm 24 36;
+
+let c8_expr = "fib 10";
+let c8_ans = fib 10;
+
+// Combined formula: (2^8 + 6!) / 10
+let active_expr = "(pow 2 8 + fact 6) / 10";
+let active_ans = div (add (pow 2 8) (fact 6)) 10;
+
+// --- 4. Terminal UI Layout Rendering ---
+
+let nl = "\n";
+let border = "+---------------------------------------------------+" + nl;
+
+let calc_ui =
+  border +
+  "|         VESPER SCIENTIFIC CALCULATOR  v1.0        |" + nl +
+  border +
+  "|  [ LCD DISPLAY SCREEN ]              MODE: INTEGER |" + nl +
+  "|  +---------------------------------------------+  |" + nl +
+  "|  | EXPRESSION : " + active_expr + "     |  |" + nl +
+  "|  | RESULT     : = " + (int_to_str active_ans) + "                          |  |" + nl +
+  "|  +---------------------------------------------+  |" + nl +
+  border +
+  "|  [ KEYPAD MATRIX ]                                |" + nl +
+  "|   [ 7 ]   [ 8 ]   [ 9 ]   |   [ / ]   [ C ]   [OFF] |" + nl +
+  "|   [ 4 ]   [ 5 ]   [ 6 ]   |   [ * ]   [ ( ]   [POW] |" + nl +
+  "|   [ 1 ]   [ 2 ]   [ 3 ]   |   [ - ]   [ ) ]   [SQRT]|" + nl +
+  "|   [ 0 ]   [ANS]   [ = ]   |   [ + ]   [MOD]   [FACT]|" + nl +
+  border +
+  "|  [ CALCULATION TAPE / HISTORY ]                   |" + nl +
+  "|   #1 | " + c1_expr + "             = " + (int_to_str c1_ans) + "                 |" + nl +
+  "|   #2 | " + c2_expr + "             = " + (int_to_str c2_ans) + "                |" + nl +
+  "|   #3 | " + c3_expr + "            = " + (int_to_str c3_ans) + "                |" + nl +
+  "|   #4 | " + c4_expr + "              = " + (int_to_str c4_ans) + "                 |" + nl +
+  "|   #5 | " + c5_expr + "         = " + (int_to_str c5_ans) + "                 |" + nl +
+  "|   #6 | " + c6_expr + "        = " + (int_to_str c6_ans) + "                  |" + nl +
+  "|   #7 | " + c7_expr + "           = " + (int_to_str c7_ans) + "                  |" + nl +
+  "|   #8 | " + c8_expr + "              = " + (int_to_str c8_ans) + "                  |" + nl +
+  border +
+  "|  STATUS: EVALUATED SUCCESSFULLY   | FUEL: NOMINAL |" + nl +
+  border;
+
+calc_ui;

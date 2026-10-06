@@ -1,0 +1,7 @@
+let message_repeat = 3;
+
+let rec countdown n =
+    if n <= 1 then 1
+    else n * countdown (n - 1);
+
+countdown message_repeat;
