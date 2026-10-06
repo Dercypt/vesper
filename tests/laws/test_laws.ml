@@ -9,4 +9,5 @@ let () =
       ("Law 5: Deterministic Evaluation & Sound Termination", Test_law5_determinism.tests);
       ("Phase 8: VM Determinism & Dual-Execution", Test_vm_determinism.tests);
       ("Phase 9: Sandboxed I/O Isolation & Replay", Test_io_isolation.tests);
+      ("Phase 10: Tooling (CLI, REPL, LSP)", Test_tooling_laws.tests);
     ]
