@@ -15,12 +15,12 @@ A compiler front end needs the following, in priority order. Items marked **(mis
 | Closures, recursion, higher-order functions | Combinators, recursive descent | present |
 | Integers, booleans, strings | Positions, flags, token text | present |
 | String primitives (`length`, `get`/`sub`, `concat`, `of_int`) | Lexing | OCaml-side only (`Core_string`); **expose as runtime primitives** |
-| Algebraic data types and `match` | Tokens, AST, types, errors | Pattern compiler exists (Phase 5); **surface syntax missing** |
+| Algebraic data types and `match` | Tokens, AST, types, errors | Pattern compiler exists (Phase 6 standalone library); **surface syntax missing** |
 | Lists and tuples | Token streams, substitutions | `Core_list`, ADT constructors exist; **surface syntax missing** |
 | `option` / `result` | Total error handling (Law 1) | `Core_option`, `Core_result` OCaml-side; **expose** |
 | Persistent maps | Type environments, substitutions | `Core_map` OCaml-side; **expose** |
 | Records | AST nodes with spans | `VRecord` value exists; **surface syntax missing** |
-| Modules / interfaces | Separate lexer, parser, typechecker units | Phase 7 module system |
+| Modules / interfaces | Separate lexer, parser, typechecker units | Phase 7 standalone module library; **surface syntax missing** |
 | Capability-based I/O | Reading sources, writing diagnostics | `Effect_runtime` OCaml-side; **expose via prelude** |
 
 ## Bootstrap stages

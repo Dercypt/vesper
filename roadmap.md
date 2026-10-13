@@ -13,11 +13,14 @@ This document outlines the master architectural roadmap for **Vesper**, a progra
 | **Phase 3** | Core IR, Provenance & Desugaring | [**Law 3** (Span Lineage)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-3-strict-source-provenance-span-retention) & [**Law 4** (Idempotence)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-4-idempotent-normalization--desugaring) | Explicit Core IR, Desugaring Passes, 100% Provenance Retention | COMPLETE |
 | **Phase 4** | Deterministic Tree-Walking Runtime | [**Law 5** (Deterministic Evaluation)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-5-deterministic-evaluation--sound-termination) | Pure Value Model, Environment Scoping, Step/Fuel Bounds | COMPLETE |
 | **Phase 5** | Static Analysis & Type Checking | [**Law 1** (Diagnosability)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-1-total-diagnosability--host-isolation-no-host-crashes) & [**Law 3** (Provenance)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-3-strict-source-provenance-span-retention) | Bidirectional Type Checking, Hindley-Milner Inference, Type Errors | COMPLETE |
-| **Phase 6** | Algebraic Data Types & Pattern Matching | [**Law 1** (Diagnosability)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-1-total-diagnosability--host-isolation-no-host-crashes) & [**Law 4** (Idempotence)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-4-idempotent-normalization--desugaring) | Sum & Product Types, Maranget Exhaustiveness Checking, Decision Trees | COMPLETE |
-| **Phase 7** | Module System & Compilation Units | [**Law 3** (Provenance)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-3-strict-source-provenance-span-retention) & [**Law 5** (Determinism)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-5-deterministic-evaluation--sound-termination) | Namespaces, Interface Checking, Dependency Graph & Cycle Detection | COMPLETE |
+| **Phase 6** | Algebraic Data Types & Pattern Matching | [**Law 1** (Diagnosability)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-1-total-diagnosability--host-isolation-no-host-crashes) & [**Law 4** (Idempotence)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-4-idempotent-normalization--desugaring) | Sum & Product Types, Maranget Exhaustiveness Checking, Decision Trees | STANDALONE LIBRARY |
+| **Phase 7** | Module System & Compilation Units | [**Law 3** (Provenance)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-3-strict-source-provenance-span-retention) & [**Law 5** (Determinism)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-5-deterministic-evaluation--sound-termination) | Namespaces, Interface Checking, Dependency Graph & Cycle Detection | STANDALONE LIBRARY |
 | **Phase 8** | Bytecode Virtual Machine | [**Law 5** (Deterministic Evaluation)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-5-deterministic-evaluation--sound-termination) | Compact Stack VM, Instruction Set Architecture, Bytecode Compiler | COMPLETE |
 | **Phase 9** | Standard Library & Sandboxed Effects | [**Law 1** (Diagnosability)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-1-total-diagnosability--host-isolation-no-host-crashes) & [**Law 5** (Determinism)](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-5-deterministic-evaluation--sound-termination) | Pure Core Stdlib, Sandboxed Effect Runtime, Replayable I/O Boundary | COMPLETE |
 | **Phase 10** | Tooling Ecosystem & Production CLI | All Laws ([**1–5**](file:///Users/zyndrex/vesper-sandbox/LAWS.md)) | Interactive REPL, Formatter CLI, LSP Server Foundation, Self-Hosting Path | COMPLETE |
+
+> [!NOTE]
+> **Implementation Status of Phases 6 & 7**: The algorithmic and structural foundations for Phase 6 (Maranget exhaustiveness checking, pattern decision trees in `lib/pattern.ml`, `lib/exhaustiveness.ml`, `lib/pat_compile.ml`) and Phase 7 (module interface verification, DAG dependency and cycle detection in `lib/mod_ast.ml`, `lib/namespace.ml`, `lib/dep_graph.ml`, `lib/module_check.ml`) are fully implemented and verified via unit tests (`tests/unit/test_patterns.ml`, `tests/unit/test_modules.ml`). However, they are currently standalone experimental library modules: their surface grammar rules (`match`, `type`, `struct`, `sig`, `open`, `import`) have not yet been integrated into the Menhir parser (`parser.mly`) or Core IR desugarer (`desugar.ml`), and they are not invoked by the language CLI driver.
 
 ---
 
@@ -326,7 +329,10 @@ Test positive type validity and negative diagnostic clarity.
 
 ---
 
-## Phase 6: Algebraic Data Types, Structs & Exhaustive Pattern Matching
+## Phase 6: Algebraic Data Types, Structs & Exhaustive Pattern Matching (Standalone Experimental Library)
+
+> [!NOTE]
+> **Implementation Status**: Implemented as a standalone experimental library module. The internal pattern representation, Maranget matrix-based exhaustiveness checker, and decision tree compiler (`lib/pattern.ml`, `lib/exhaustiveness.ml`, `lib/pat_compile.ml`) are fully implemented and verified by unit tests (`tests/unit/test_patterns.ml`). However, grammar productions for `match`, `type`, and constructors have not yet been declared in `lib/parser.mly` or hooked into `lib/desugar.ml`, so this subsystem is not currently exposed via the CLI driver.
 
 ### Objective
 Expand the language syntax and type system with user-defined Algebraic Data Types (ADTs) and records. Implement Maranget's matrix-based exhaustiveness and redundancy algorithm to guarantee pattern matching safety and eliminate match failures ([**Law 1**](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-1-total-diagnosability--host-isolation-no-host-crashes) & [**Law 4**](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-4-idempotent-normalization--desugaring)).
@@ -386,7 +392,10 @@ Verify safety, exhaustiveness warnings, and evaluation correctness.
 
 ---
 
-## Phase 7: Module System, Namespaces & Compilation Units
+## Phase 7: Module System, Namespaces & Compilation Units (Standalone Experimental Library)
+
+> [!NOTE]
+> **Implementation Status**: Implemented as a standalone experimental library module. The module AST representations, namespace bindings, interface conformance checker, and DAG cycle resolver (`lib/mod_ast.ml`, `lib/namespace.ml`, `lib/dep_graph.ml`, `lib/module_check.ml`) are verified by unit tests (`tests/unit/test_modules.ml`). Parsing is handled via a prototype line-based scanner in `mod_ast.ml`; grammar productions for `module`, `struct`, `sig`, `open`, and `import` have not yet been declared in `lib/parser.mly`, nor hooked into the CLI execution pipeline.
 
 ### Objective
 Implement a multi-file compilation pipeline with hierarchical namespaces, explicit interface contracts (`.vesperi`), cyclic dependency detection, and deterministic linking order ([**Law 3**](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-3-strict-source-provenance-span-retention) & [**Law 5**](file:///Users/zyndrex/vesper-sandbox/LAWS.md#law-5-deterministic-evaluation--sound-termination)).
