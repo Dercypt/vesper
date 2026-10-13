@@ -20,6 +20,15 @@
 
 ---
 
+## Implementation Status
+
+- **Core Language Pipeline (Fully Integrated)**: Complete end-to-end integration across the CLI (`run`, `check`, `fmt`, `repl`, `disasm`, `lsp`). Supports pure functional semantics, curried functions, recursion, full Hindley-Milner type inference (Algorithm W), Core IR desugaring, bytecode compilation, and deterministic VM execution.
+- **Standalone Experimental Libraries (Phases 6 & 7)**:
+  - **Pattern Matching & ADTs (`lib/pattern.ml`, `lib/exhaustiveness.ml`, `lib/pat_compile.ml`)**: Complete algorithmic implementations of Maranget's matrix-based exhaustiveness checking and decision tree compilation, verified by dedicated unit tests (`tests/unit/test_patterns.ml`). Surface syntax rules (`match`, `type`, constructor definitions) are not yet integrated into the Menhir grammar (`lib/parser.mly`) or Core IR desugarer (`lib/desugar.ml`), and are not exposed via the CLI driver.
+  - **Module System & Namespaces (`lib/mod_ast.ml`, `lib/namespace.ml`, `lib/dep_graph.ml`, `lib/module_check.ml`)**: Standalone module representations, interface conformance checking, and topological cycle detection, verified by unit tests (`tests/unit/test_modules.ml`). Uses prototype line-based parsing in `mod_ast.ml`; full grammar productions for modules (`module`, `struct`, `sig`, `open`, `import`) have not yet been declared in `lib/parser.mly` or wired into the CLI.
+
+---
+
 ## Language at a Glance
 
 ```vesper
@@ -143,7 +152,11 @@ vesper-sandbox/
 │   ├── compiler.ml # Bytecode compiler
 │   ├── vm.ml     # Bytecode virtual machine
 │   ├── repl.ml   # Interactive REPL
-│   └── lsp_server.ml # Language Server Protocol implementation
+│   ├── lsp_server.ml # Language Server Protocol implementation
+│   ├── pat_compile.ml # (Standalone library) Pattern match compiler & decision trees
+│   ├── exhaustiveness.ml # (Standalone library) Maranget exhaustiveness checker
+│   ├── mod_ast.ml # (Standalone library) Module AST and prototype scanner
+│   └── dep_graph.ml # (Standalone library) Module DAG & cycle detection
 ├── examples/     # Example programs written in Vesper
 ├── tests/        # Unit tests, Cram CLI tests, and invariant law suites
 │   └── laws/     # Formal invariant test suite
