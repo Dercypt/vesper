@@ -13,7 +13,6 @@ let usage =
       "  vesper repl                  Start an interactive session";
       "  vesper disasm <file>         Print disassembled bytecode";
       "  vesper lsp                   Serve the Language Server Protocol on stdin/stdout";
-      "  vesper <file>                Parse and validate a source file";
       "  vesper -e <source>           Parse and validate inline source";
       "  vesper --help                Display this help message";
       "  vesper --version             Display version information";
@@ -31,7 +30,7 @@ type command =
   | Lsp
   | Help
   | Version
-  | Legacy of string array
+  | Eval of string
 
 let parse_args argv =
   let args = Array.to_list argv in
@@ -49,7 +48,7 @@ let parse_args argv =
         | _ -> Error (Printf.sprintf "'%s' takes no arguments" name)
       in
       match rest with
-      | ("--help" | "-h") :: _ -> Ok Help
+      | [] | ("--help" | "-h") :: _ -> Ok Help
       | ("--version" | "-v") :: _ -> Ok Version
       | "run" :: tl -> one "run" (fun f -> Run f) tl
       | "check" :: tl -> one "check" (fun f -> Check f) tl
@@ -64,11 +63,14 @@ let parse_args argv =
           | [] -> Error "'fmt' requires a file argument"
           | [ f ] -> Error (Printf.sprintf "unknown option '%s' for 'fmt'" f)
           | _ -> Error "'fmt' takes exactly one file argument")
-      | "-e" :: _ :: _ -> Ok (Legacy argv)
-      | "-e" :: [] -> Error "'-e' requires a source argument"
+      | "-e" :: tl -> (
+          match tl with
+          | [ src ] -> Ok (Eval src)
+          | [] -> Error "'-e' requires a source argument"
+          | _ -> Error "'-e' takes exactly one source argument")
       | f :: _ when String.length f > 0 && f.[0] = '-' ->
           Error (Printf.sprintf "unknown option '%s'" f)
-      | _ -> Ok (Legacy argv))
+      | cmd :: _ -> Error (Printf.sprintf "unknown command '%s'" cmd))
 
 let format_source ~file src =
   match Parse_facade.parse_string ~file src with
@@ -192,6 +194,22 @@ let cmd_repl () =
       prerr_string s;
       flush stderr)
 
+let cmd_eval source =
+  match Driver.compile_string ~file:"<cli>" source with
+  | Error d ->
+      report ~source d;
+      1
+  | Ok prog -> (
+      match typecheck ~source prog with
+      | Error c -> c
+      | Ok () -> (
+          match compile_with_prelude ~source prog with
+          | Error c -> c
+          | Ok _chunk ->
+              Printf.printf "Successfully parsed %d declaration(s).\n"
+                (List.length prog.decls);
+              0))
+
 let execute = function
   | Help ->
       print_string usage;
@@ -205,7 +223,7 @@ let execute = function
   | Repl -> cmd_repl ()
   | Disasm f -> cmd_disasm f
   | Lsp -> Lsp_server.run stdin stdout
-  | Legacy argv -> Driver.run_cli argv
+  | Eval s -> cmd_eval s
 
 let main argv =
   try

@@ -11,9 +11,7 @@ type command =
   | Lsp  (** [vesper lsp]: serve the Language Server Protocol over stdin/stdout. *)
   | Help
   | Version
-  | Legacy of string array
-      (** Backward-compatible forms: [vesper <file>] and [vesper -e <src>]. Carries the
-          original argv. *)
+  | Eval of string  (** [vesper -e <source>] *)
 
 val parse_args : string array -> (command, string) result
 (** Parses a full [argv] (including program name). Returns a usage message on malformed

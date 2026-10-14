@@ -18,8 +18,8 @@ let test_parse_args () =
     "fmt write" true
     (parse [ "fmt"; "--write"; "a" ] = Ok (Cli.Fmt { file = "a"; write = true }));
   Alcotest.(check bool)
-    "legacy file" true
-    (match parse [ "a.vesper" ] with Ok (Cli.Legacy _) -> true | _ -> false);
+    "eval" true
+    (parse [ "-e"; "let x = 1;" ] = Ok (Cli.Eval "let x = 1;"));
   List.iter
     (fun args ->
       Alcotest.(check bool) (String.concat " " args) true (is_error (parse args)))
@@ -29,9 +29,21 @@ let test_parse_args () =
       [ "run"; "--x" ];
       [ "repl"; "x" ];
       [ "-e" ];
+      [ "-e"; "a"; "b" ];
       [ "--zzz" ];
       [ "fmt" ];
+      [ "a.vesper" ];
+      [ "unknown_cmd" ];
     ]
+
+let test_eval () =
+  Alcotest.(check int) "eval valid" 0 (Cli.main [| "vesper"; "-e"; "let x = 1 + 2;" |]);
+  Alcotest.(check int)
+    "eval type mismatch returns 1" 1
+    (Cli.main [| "vesper"; "-e"; "1 + true;" |]);
+  Alcotest.(check int)
+    "eval syntax error returns 1" 1
+    (Cli.main [| "vesper"; "-e"; "let x =" |])
 
 let test_repl_state () =
   let st = Repl.initial () in
@@ -81,6 +93,7 @@ let () =
       ( "CLI & REPL",
         [
           Alcotest.test_case "argument parsing" `Quick test_parse_args;
+          Alcotest.test_case "eval command" `Quick test_eval;
           Alcotest.test_case "repl state" `Quick test_repl_state;
           Alcotest.test_case "repl errors" `Quick test_repl_errors;
           Alcotest.test_case "repl loop" `Quick test_repl_run;
