@@ -83,12 +83,21 @@ Malformed arguments yield usage errors, never exceptions:
     --> <dummy>:0:0-0:0
   [1]
 
-Legacy forms still work:
+Inline expressions (-e) parse and validate, while raw files require subcommands:
 
   $ vesper ok.vesper
-  Successfully parsed 3 declaration(s) in ok.vesper.
+  vesper: unknown command 'ok.vesper'
+  Try 'vesper --help' for usage.
+  [2]
   $ vesper -e 'let x = 1;'
   Successfully parsed 1 declaration(s).
+  $ vesper -e '1 + true;'
+  error[E1008]: Type mismatch: expected 'int', but got 'bool'
+    --> <cli>:1:0-1:8
+     |
+   1 | 1 + true;
+     | ^^^^^^^^
+  [1]
 
 REPL keeps state, survives errors, and supports multi-line input:
 
