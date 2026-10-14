@@ -12,7 +12,10 @@ val compile_program : ?env:Env.t -> Core_ir.program -> (Bytecode.chunk, Ast.erro
 (** Compiles an entire Core IR program into an executable bytecode chunk. *)
 
 val compile_fun :
-  ?captures:(string * int) array -> param:string -> Core_ir.expr -> Bytecode.chunk
+  ?captures:(string * int) array ->
+  param:string ->
+  Core_ir.expr ->
+  (Bytecode.chunk, Ast.error) result
 (** Compiles a lambda function body into a function bytecode chunk ending in [Op_Return].
 *)
 
