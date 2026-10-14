@@ -13,7 +13,33 @@ let prelude_source =
    let id x = x;\n\
    let const x y = x;\n\
    let flip f x y = f y x;\n\
-   let compose f g x = f (g x);\n"
+   let compose f g x = f (g x);\n\
+   let add a b = a + b;\n\
+   let sub a b = a - b;\n\
+   let mul a b = a * b;\n\
+   let div a b = if b == 0 then 0 else a / b;\n\
+   let rem a b = if b == 0 then 0 else a % b;\n\
+   let modulo a b = if b == 0 then 0 else a % b;\n\
+   let is_even x = (x % 2) == 0;\n\
+   let is_odd x = (x % 2) != 0;\n\
+   let rec pow b e = if e <= 0 then 1 else b * pow b (e - 1);\n\
+   let rec fact n = if n <= 1 then 1 else n * fact (n - 1);\n\
+   let rec gcd a b = if b == 0 then a else gcd b (a % b);\n\
+   let lcm a b = if a == 0 || b == 0 then 0 else (a * b) / (gcd a b);\n\
+   let rec isqrt_guess n g = if g * g <= n && (g + 1) * (g + 1) > n then g else if g == \
+   0 then 0 else isqrt_guess n ((g + n / g) / 2);\n\
+   let isqrt n = if n <= 0 then 0 else isqrt_guess n (n / 2 + 1);\n\
+   let rec fib n = if n <= 0 then 0 else if n == 1 then 1 else fib (n - 1) + fib (n - 2);\n\
+   let digit_to_str d = if d == 0 then \"0\" else if d == 1 then \"1\" else if d == 2 \
+   then \"2\" else if d == 3 then \"3\" else if d == 4 then \"4\" else if d == 5 then \
+   \"5\" else if d == 6 then \"6\" else if d == 7 then \"7\" else if d == 8 then \"8\" \
+   else if d == 9 then \"9\" else \"?\";\n\
+   let rec int_to_str_pos n = if n < 10 then digit_to_str n else \"\" + (int_to_str_pos \
+   (n / 10)) + (digit_to_str (n % 10));\n\
+   let int_to_str n = if n < 0 then \"-\" + (int_to_str_pos (-n)) else int_to_str_pos n;\n\
+   let bool_to_str b = if b then \"true\" else \"false\";\n\
+   let string_concat a b = \"\" + a + b;\n\
+   let string_is_empty s = s == \"\";\n"
 
 let cached_ast =
   lazy

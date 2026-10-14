@@ -294,9 +294,45 @@ let test_prelude () =
   (match run_with_prelude_vm "max 30 15;" with
   | Ok (Value.VInt 30) -> ()
   | _ -> Alcotest.fail "Expected VM max 30 15 = 30");
-  match run_with_prelude_vm "compose succ abs (-5);" with
+  (match run_with_prelude_vm "compose succ abs (-5);" with
   | Ok (Value.VInt 6) -> ()
-  | _ -> Alcotest.fail "Expected VM compose succ abs (-5) = 6"
+  | _ -> Alcotest.fail "Expected VM compose succ abs (-5) = 6");
+  (match run_with_prelude_vm "add 15 25;" with
+  | Ok (Value.VInt 40) -> ()
+  | _ -> Alcotest.fail "Expected VM add 15 25 = 40");
+  (match run_with_prelude_vm "pow 2 8;" with
+  | Ok (Value.VInt 256) -> ()
+  | _ -> Alcotest.fail "Expected VM pow 2 8 = 256");
+  (match run_with_prelude_vm "fact 6;" with
+  | Ok (Value.VInt 720) -> ()
+  | _ -> Alcotest.fail "Expected VM fact 6 = 720");
+  (match run_with_prelude_vm "gcd 1071 462;" with
+  | Ok (Value.VInt 21) -> ()
+  | _ -> Alcotest.fail "Expected VM gcd 1071 462 = 21");
+  (match run_with_prelude_vm "lcm 24 36;" with
+  | Ok (Value.VInt 72) -> ()
+  | _ -> Alcotest.fail "Expected VM lcm 24 36 = 72");
+  (match run_with_prelude_vm "isqrt 65536;" with
+  | Ok (Value.VInt 256) -> ()
+  | _ -> Alcotest.fail "Expected VM isqrt 65536 = 256");
+  (match run_with_prelude_vm "fib 10;" with
+  | Ok (Value.VInt 55) -> ()
+  | _ -> Alcotest.fail "Expected VM fib 10 = 55");
+  (match run_with_prelude_vm "is_even 42 && is_odd 7;" with
+  | Ok (Value.VBool true) -> ()
+  | _ -> Alcotest.fail "Expected is_even / is_odd boolean");
+  (match run_with_prelude_vm "int_to_str (-123);" with
+  | Ok (Value.VString "-123") -> ()
+  | _ -> Alcotest.fail "Expected int_to_str (-123) = \"-123\"");
+  (match run_with_prelude_vm "bool_to_str true;" with
+  | Ok (Value.VString "true") -> ()
+  | _ -> Alcotest.fail "Expected bool_to_str true = \"true\"");
+  (match run_with_prelude_vm "string_concat \"foo\" \"bar\";" with
+  | Ok (Value.VString "foobar") -> ()
+  | _ -> Alcotest.fail "Expected string_concat = \"foobar\"");
+  match run_with_prelude_vm "string_is_empty \"\";" with
+  | Ok (Value.VBool true) -> ()
+  | _ -> Alcotest.fail "Expected string_is_empty = true"
 
 let () =
   let open Alcotest in
