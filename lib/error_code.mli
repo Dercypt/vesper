@@ -20,6 +20,8 @@ type t =
   | E4002_unbound_module
   | E4003_interface_mismatch
   | E4004_private_member_access
+  | E5001_division_by_zero
+  | E5002_fuel_exhausted
 
 val to_code_string : t -> string
 (** Returns the formal string code (e.g., "E1001"). *)

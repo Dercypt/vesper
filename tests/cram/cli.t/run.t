@@ -106,6 +106,13 @@ Inline expressions (-e) parse and validate, while raw files require subcommands:
    1 | 1 + true;
      | ^^^^^^^^
   [1]
+  $ vesper -e '10 / 0;'
+  error[E5001]: Division by zero
+    --> <cli>:1:0-1:6
+     |
+   1 | 10 / 0;
+     | ^^^^^^
+  [1]
 
 REPL keeps state, survives errors, and supports multi-line input:
 
