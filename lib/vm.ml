@@ -188,7 +188,7 @@ let run_vm_outcome ?(fuel = default_fuel) ?(env = []) (main_chunk : Bytecode.chu
     if !cur_fuel <= 0 then
       let span = Bytecode.get_span !cur_chunk !ip in
       Error
-        (Diagnostic.error ~code:Error_code.E0002_internal_error ~span
+        (Diagnostic.error ~code:Error_code.E5002_fuel_exhausted ~span
            "Execution budget exhausted")
     else if !ip >= Array.length !cur_chunk.code then
       let result = if !sp > 0 then !stack.(!sp - 1) else VUnit in
@@ -318,7 +318,7 @@ let run_vm_outcome ?(fuel = default_fuel) ?(env = []) (main_chunk : Bytecode.chu
           match (a, b) with
           | VInt _, VInt 0 ->
               Error
-                (Diagnostic.error ~code:Error_code.E2001_type_error ~span
+                (Diagnostic.error ~code:Error_code.E5001_division_by_zero ~span
                    "Division by zero")
           | VInt x, VInt y ->
               push (VInt (x / y));
@@ -334,7 +334,7 @@ let run_vm_outcome ?(fuel = default_fuel) ?(env = []) (main_chunk : Bytecode.chu
           match (a, b) with
           | VInt _, VInt 0 ->
               Error
-                (Diagnostic.error ~code:Error_code.E2001_type_error ~span
+                (Diagnostic.error ~code:Error_code.E5001_division_by_zero ~span
                    "Division by zero")
           | VInt x, VInt y ->
               push (VInt (x mod y));

@@ -208,10 +208,18 @@ let cmd_eval source =
       | Ok () -> (
           match compile_with_prelude ~source prog with
           | Error c -> c
-          | Ok _chunk ->
-              Printf.printf "Successfully parsed %d declaration(s).\n"
-                (List.length prog.decls);
-              0))
+          | Ok chunk -> (
+              match Vm.run chunk with
+              | Ok Value.VUnit -> 0
+              | Ok (Value.VString s) ->
+                  print_endline s;
+                  0
+              | Ok v ->
+                  print_endline (Value.to_string v);
+                  0
+              | Error d ->
+                  report ~source d;
+                  1)))
 
 let execute = function
   | Help ->

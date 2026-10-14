@@ -115,6 +115,11 @@ let test_driver_isolation () =
         "Message mentions filename" true
         (String.length diag.message > 0));
 
+  (* Test read_file on non-regular file /dev/null *)
+  (match Driver.read_file "/dev/null" with
+  | Ok s -> Alcotest.(check string) "Empty string from /dev/null" "" s
+  | Error diag -> Alcotest.fail ("Failed reading /dev/null: " ^ diag.message));
+
   (* Test Driver.compile_string safely isolates errors *)
   (match Driver.compile_string "let x =" with
   | Ok _ -> Alcotest.fail "Expected syntax error"

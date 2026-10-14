@@ -17,6 +17,8 @@ type t =
   | E4002_unbound_module
   | E4003_interface_mismatch
   | E4004_private_member_access
+  | E5001_division_by_zero
+  | E5002_fuel_exhausted
 
 let to_code_string = function
   | E0001_io_error -> "E0001"
@@ -37,6 +39,8 @@ let to_code_string = function
   | E4002_unbound_module -> "E4002"
   | E4003_interface_mismatch -> "E4003"
   | E4004_private_member_access -> "E4004"
+  | E5001_division_by_zero -> "E5001"
+  | E5002_fuel_exhausted -> "E5002"
 
 let to_description = function
   | E0001_io_error -> "I/O Error"
@@ -57,6 +61,8 @@ let to_description = function
   | E4002_unbound_module -> "Unbound Module Identifier"
   | E4003_interface_mismatch -> "Interface Conformance Mismatch"
   | E4004_private_member_access -> "Private Member Access Violation"
+  | E5001_division_by_zero -> "Division by Zero"
+  | E5002_fuel_exhausted -> "Execution Budget Exhausted"
 
 let pp fmt code = Format.pp_print_string fmt (to_code_string code)
 let to_string code = to_code_string code

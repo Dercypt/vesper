@@ -106,10 +106,39 @@ let test_vm_errors () =
   | Error msg ->
       Alcotest.(check string) "unbound error" "Unbound variable 'not_found'" msg
   | Ok () -> Alcotest.fail "Expected unbound error");
-  match run_src "let x = 1; x 2;" with
+  (match run_src "let x = 1; x 2;" with
   | Error msg ->
       Alcotest.(check bool) "type error" true (String.sub msg 0 10 = "Type error")
-  | Ok () -> Alcotest.fail "Expected type error"
+  | Ok () -> Alcotest.fail "Expected type error");
+  let run_diag ?fuel src =
+    match Parse_facade.parse_string ~file:"<test>" src with
+    | Error diag -> Error diag
+    | Ok ast -> (
+        match Compiler.compile ast with
+        | Error err -> Error (Diagnostic.of_ast_error err)
+        | Ok chunk -> VM.run ?fuel chunk)
+  in
+  (match run_diag "10 / 0;" with
+  | Error diag ->
+      Alcotest.(check bool)
+        "divzero error code" true
+        (Error_code.equal diag.code Error_code.E5001_division_by_zero);
+      Alcotest.(check string) "divzero message" "Division by zero" diag.message
+  | Ok _ -> Alcotest.fail "Expected divzero error");
+  (match run_diag "10 % 0;" with
+  | Error diag ->
+      Alcotest.(check bool)
+        "modzero error code" true
+        (Error_code.equal diag.code Error_code.E5001_division_by_zero)
+  | Ok _ -> Alcotest.fail "Expected modzero error");
+  match run_diag ~fuel:0 "let x = 1;" with
+  | Error diag ->
+      Alcotest.(check bool)
+        "fuel exhausted code" true
+        (Error_code.equal diag.code Error_code.E5002_fuel_exhausted);
+      Alcotest.(check string)
+        "fuel exhausted message" "Execution budget exhausted" diag.message
+  | Ok _ -> Alcotest.fail "Expected fuel exhausted error"
 
 let test_static_closures () =
   let run_src src =
