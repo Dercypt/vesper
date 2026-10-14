@@ -17,10 +17,9 @@ vesper <command> [options] [arguments]
 | `vesper repl` | Start interactive REPL (`:quit` to exit). |
 | `vesper disasm <file>` | Disassemble bytecode with source spans. |
 | `vesper lsp` | Run LSP server over stdin/stdout. |
+| `vesper -e <source>` | Parse, typecheck, and validate inline source. |
 | `vesper --help` | Show usage text. |
 | `vesper --version` | Print compiler version. |
-
-Legacy aliases `vesper <file>` and `vesper -e <expr>` remain supported.
 
 ## Exit Codes
 
