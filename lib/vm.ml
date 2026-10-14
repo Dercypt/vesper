@@ -1,60 +1,155 @@
 let default_fuel = 1_000_000
 
-type call_frame = { chunk : Bytecode.chunk; ip : int; base_sp : int; env : Env.t }
+type value =
+  | VInt of int
+  | VBool of bool
+  | VString of string
+  | VUnit
+  | VClosure of { chunk : Bytecode.chunk; env : env }
+  | VConstruct of string * value list
+  | VRecord of (string * value) list
+
+and env = (string * value) list
+
+type call_frame = { chunk : Bytecode.chunk; ip : int; base_sp : int; env : env }
 
 type vm_state = {
   chunk : Bytecode.chunk;
   ip : int;
-  stack : Value.t array;
+  stack : value array;
   sp : int;
   call_stack : call_frame list;
 }
 
 type vm_outcome = { value : Value.t; env : Env.t; steps : int }
+type vm_raw_outcome = { value : value; env : env; steps : int }
 
 let ( let* ) res f = match res with Ok v -> f v | Error e -> Error e
-let fun_cache : (string * Core_ir.expr, Bytecode.chunk) Hashtbl.t = Hashtbl.create 64
 
-let resolve_callee_chunk (cur_chunk : Bytecode.chunk) (call_stack : call_frame list)
-    ~param (body : Core_ir.expr) : Bytecode.chunk =
-  let rec find_in_children (children : Bytecode.chunk array) =
-    let len = Array.length children in
-    let rec loop i =
-      if i >= len then None
-      else
-        let ch = children.(i) in
-        match ch.body with
-        | Some b when Core_ir.expr_equal b body -> Some ch
-        | _ -> (
-            match find_in_children ch.children with
-            | Some ch' -> Some ch'
-            | None -> loop (i + 1))
-    in
-    loop 0
+let type_of = function
+  | VInt _ -> "int"
+  | VBool _ -> "bool"
+  | VString _ -> "string"
+  | VUnit -> "unit"
+  | VClosure _ -> "function"
+  | VConstruct (name, _) -> name
+  | VRecord _ -> "record"
+
+let equal v1 v2 =
+  let rec eq_val visited v1 v2 =
+    if v1 == v2 then true
+    else if
+      List.exists (fun (a, b) -> (a == v1 && b == v2) || (a == v2 && b == v1)) visited
+    then true
+    else
+      match (v1, v2) with
+      | VInt a, VInt b -> a = b
+      | VBool a, VBool b -> a = b
+      | VString a, VString b -> String.equal a b
+      | VUnit, VUnit -> true
+      | VConstruct (c1, args1), VConstruct (c2, args2) ->
+          String.equal c1 c2 && List.equal (eq_val visited) args1 args2
+      | VRecord f1, VRecord f2 ->
+          List.equal
+            (fun (k1, val1) (k2, val2) -> String.equal k1 k2 && eq_val visited val1 val2)
+            f1 f2
+      | VClosure { chunk = c1; env = e1 }, VClosure { chunk = c2; env = e2 } ->
+          if Bytecode.equal c1 c2 then eq_env ((v1, v2) :: visited) e1 e2 else false
+      | _ -> false
+  and eq_env visited e1 e2 =
+    List.equal
+      (fun (k1, val1) (k2, val2) -> String.equal k1 k2 && eq_val visited val1 val2)
+      e1 e2
   in
-  match find_in_children cur_chunk.children with
-  | Some ch -> ch
-  | None -> (
-      let rec search_frames = function
-        | [] -> None
-        | (frame : call_frame) :: rest -> (
-            match find_in_children frame.chunk.children with
-            | Some ch -> Some ch
-            | None -> search_frames rest)
-      in
-      match search_frames call_stack with
-      | Some ch -> ch
-      | None -> (
-          match Hashtbl.find_opt fun_cache (param, body) with
-          | Some ch -> ch
-          | None ->
-              let ch = Compiler.compile_fun ~param body in
-              Hashtbl.add fun_cache (param, body) ch;
-              ch))
+  eq_val [] v1 v2
 
-let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode.chunk) :
-    (vm_outcome, Diagnostic.t) result =
-  let stack = ref (Array.make 1024 Value.unit) in
+let value_to_eval_value (top_v : value) : Value.t =
+  let visited = ref [] in
+  let rec conv_val = function
+    | VInt n -> Value.VInt n
+    | VBool b -> Value.VBool b
+    | VString s -> Value.VString s
+    | VUnit -> Value.VUnit
+    | VConstruct (c, args) -> Value.VConstruct (c, List.map conv_val args)
+    | VRecord fields -> Value.VRecord (List.map (fun (k, v) -> (k, conv_val v)) fields)
+    | VClosure { chunk; env } as clos -> (
+        match List.assq_opt clos !visited with
+        | Some res -> res
+        | None -> (
+            let param = match chunk.param with Some p -> p | None -> "_" in
+            let body =
+              match chunk.body with
+              | Some b -> b
+              | None -> Core_ir.make_expr ~span:Ast.dummy_span (Lit (Int 0))
+            in
+            match env with
+            | (rec_name, self_clos) :: outer when self_clos == clos ->
+                let outer_env = conv_env outer in
+                let rec rec_env =
+                  (rec_name, Value.VClosure { param; body; env = rec_env }) :: outer_env
+                in
+                let res = Value.VClosure { param; body; env = rec_env } in
+                visited := (clos, res) :: !visited;
+                res
+            | _ ->
+                let outer_env = conv_env env in
+                let res = Value.VClosure { param; body; env = outer_env } in
+                visited := (clos, res) :: !visited;
+                res))
+  and conv_env env = List.map (fun (k, v) -> (k, conv_val v)) env in
+  conv_val top_v
+
+let env_to_eval_env (env : env) : Env.t =
+  List.map (fun (k, v) -> (k, value_to_eval_value v)) env
+
+let value_of_eval_value (top_v : Value.t) : value =
+  let visited = ref [] in
+  let rec conv_val = function
+    | Value.VInt n -> VInt n
+    | Value.VBool b -> VBool b
+    | Value.VString s -> VString s
+    | Value.VUnit -> VUnit
+    | Value.VConstruct (c, args) -> VConstruct (c, List.map conv_val args)
+    | Value.VRecord fields -> VRecord (List.map (fun (k, v) -> (k, conv_val v)) fields)
+    | Value.VClosure { param; body; env } as clos -> (
+        match List.assq_opt clos !visited with
+        | Some res -> res
+        | None -> (
+            let chunk =
+              match Compiler.compile_fun ~param body with
+              | Ok c -> c
+              | Error _ -> Bytecode.empty
+            in
+            match env with
+            | (rec_name, self_clos) :: outer when self_clos == clos ->
+                let outer_env = conv_env outer in
+                let rec rec_env =
+                  (rec_name, VClosure { chunk; env = rec_env }) :: outer_env
+                in
+                let res = VClosure { chunk; env = rec_env } in
+                visited := (clos, res) :: !visited;
+                res
+            | _ ->
+                let outer_env = conv_env env in
+                let res = VClosure { chunk; env = outer_env } in
+                visited := (clos, res) :: !visited;
+                res))
+  and conv_env env = List.map (fun (k, v) -> (k, conv_val v)) env in
+  conv_val top_v
+
+let env_of_eval_env (env : Env.t) : env =
+  List.map (fun (k, v) -> (k, value_of_eval_value v)) env
+
+let const_to_vm_value = function
+  | Value.VInt n -> VInt n
+  | Value.VBool b -> VBool b
+  | Value.VString s -> VString s
+  | Value.VUnit -> VUnit
+  | other -> value_of_eval_value other
+
+let run_vm_outcome ?(fuel = default_fuel) ?(env = []) (main_chunk : Bytecode.chunk) :
+    (vm_raw_outcome, Diagnostic.t) result =
+  let stack = ref (Array.make 1024 VUnit) in
   let sp = ref 0 in
   let cur_chunk = ref main_chunk in
   let ip = ref 0 in
@@ -67,7 +162,7 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
   let ensure_capacity required =
     if required >= Array.length !stack then (
       let new_len = max (required + 1) (Array.length !stack * 2) in
-      let new_stack = Array.make new_len Value.unit in
+      let new_stack = Array.make new_len VUnit in
       Array.blit !stack 0 new_stack 0 !sp;
       stack := new_stack)
   in
@@ -87,16 +182,16 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
       Ok !stack.(!sp))
   in
 
-  let peek () = if !sp <= 0 then Value.unit else !stack.(!sp - 1) in
+  let peek () = if !sp <= 0 then VUnit else !stack.(!sp - 1) in
 
-  let rec dispatch () : (vm_outcome, Diagnostic.t) result =
+  let rec dispatch () : (vm_raw_outcome, Diagnostic.t) result =
     if !cur_fuel <= 0 then
       let span = Bytecode.get_span !cur_chunk !ip in
       Error
         (Diagnostic.error ~code:Error_code.E0002_internal_error ~span
            "Execution budget exhausted")
     else if !ip >= Array.length !cur_chunk.code then
-      let result = if !sp > 0 then !stack.(!sp - 1) else Value.unit in
+      let result = if !sp > 0 then !stack.(!sp - 1) else VUnit in
       Ok { value = result; env = !globals; steps = !steps }
     else
       let op = !cur_chunk.code.(!ip) in
@@ -105,14 +200,14 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
       incr steps;
       match op with
       | Opcode.Op_Halt ->
-          let result = if !sp > 0 then !stack.(!sp - 1) else Value.unit in
+          let result = if !sp > 0 then !stack.(!sp - 1) else VUnit in
           Ok { value = result; env = !globals; steps = !steps }
       | Opcode.Op_Unit ->
-          push Value.unit;
+          push VUnit;
           incr ip;
           dispatch ()
       | Opcode.Op_Const idx ->
-          let v = Bytecode.get_constant !cur_chunk idx in
+          let v = const_to_vm_value (Bytecode.get_constant !cur_chunk idx) in
           push v;
           incr ip;
           dispatch ()
@@ -132,13 +227,13 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
           incr ip;
           dispatch ()
       | Opcode.Op_GetGlobal name -> (
-          match Env.lookup name !cur_env with
+          match List.assoc_opt name !cur_env with
           | Some v ->
               push v;
               incr ip;
               dispatch ()
           | None -> (
-              match Env.lookup name !globals with
+              match List.assoc_opt name !globals with
               | Some v ->
                   push v;
                   incr ip;
@@ -149,14 +244,14 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
                        (Printf.sprintf "Unbound variable '%s'" name))))
       | Opcode.Op_DefGlobal name ->
           let v = peek () in
-          globals := Env.extend name v !globals;
-          cur_env := Env.extend name v !cur_env;
+          globals := (name, v) :: !globals;
+          cur_env := (name, v) :: !cur_env;
           incr ip;
           dispatch ()
       | Opcode.Op_SetGlobal name ->
           let* v = pop span in
-          globals := Env.extend name v !globals;
-          cur_env := Env.extend name v !cur_env;
+          globals := (name, v) :: !globals;
+          cur_env := (name, v) :: !cur_env;
           incr ip;
           dispatch ()
       | Opcode.Op_Jump target ->
@@ -165,10 +260,10 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
       | Opcode.Op_JumpIfFalse target -> (
           let* cond = pop span in
           match cond with
-          | Value.VBool false ->
+          | VBool false ->
               ip := target;
               dispatch ()
-          | Value.VBool true ->
+          | VBool true ->
               incr ip;
               dispatch ()
           | other ->
@@ -176,17 +271,17 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
                 (Diagnostic.error ~code:Error_code.E2001_type_error ~span
                    (Printf.sprintf
                       "Type error: conditional condition must be a boolean, got %s"
-                      (Value.type_of other))))
+                      (type_of other))))
       | Opcode.Op_Add -> (
           let* b = pop span in
           let* a = pop span in
           match (a, b) with
-          | Value.VInt x, Value.VInt y ->
-              push (Value.VInt (x + y));
+          | VInt x, VInt y ->
+              push (VInt (x + y));
               incr ip;
               dispatch ()
-          | Value.VString x, Value.VString y ->
-              push (Value.VString (x ^ y));
+          | VString x, VString y ->
+              push (VString (x ^ y));
               incr ip;
               dispatch ()
           | _ ->
@@ -197,8 +292,8 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
           let* b = pop span in
           let* a = pop span in
           match (a, b) with
-          | Value.VInt x, Value.VInt y ->
-              push (Value.VInt (x - y));
+          | VInt x, VInt y ->
+              push (VInt (x - y));
               incr ip;
               dispatch ()
           | _ ->
@@ -209,8 +304,8 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
           let* b = pop span in
           let* a = pop span in
           match (a, b) with
-          | Value.VInt x, Value.VInt y ->
-              push (Value.VInt (x * y));
+          | VInt x, VInt y ->
+              push (VInt (x * y));
               incr ip;
               dispatch ()
           | _ ->
@@ -221,12 +316,12 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
           let* b = pop span in
           let* a = pop span in
           match (a, b) with
-          | Value.VInt _, Value.VInt 0 ->
+          | VInt _, VInt 0 ->
               Error
                 (Diagnostic.error ~code:Error_code.E2001_type_error ~span
                    "Division by zero")
-          | Value.VInt x, Value.VInt y ->
-              push (Value.VInt (x / y));
+          | VInt x, VInt y ->
+              push (VInt (x / y));
               incr ip;
               dispatch ()
           | _ ->
@@ -237,12 +332,12 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
           let* b = pop span in
           let* a = pop span in
           match (a, b) with
-          | Value.VInt _, Value.VInt 0 ->
+          | VInt _, VInt 0 ->
               Error
                 (Diagnostic.error ~code:Error_code.E2001_type_error ~span
                    "Division by zero")
-          | Value.VInt x, Value.VInt y ->
-              push (Value.VInt (x mod y));
+          | VInt x, VInt y ->
+              push (VInt (x mod y));
               incr ip;
               dispatch ()
           | _ ->
@@ -252,49 +347,49 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
       | Opcode.Op_Neg -> (
           let* a = pop span in
           match a with
-          | Value.VInt x ->
-              push (Value.VInt (-x));
+          | VInt x ->
+              push (VInt (-x));
               incr ip;
               dispatch ()
           | other ->
               Error
                 (Diagnostic.error ~code:Error_code.E2001_type_error ~span
                    (Printf.sprintf "Type error: operator '-' expects integer, got %s"
-                      (Value.type_of other))))
+                      (type_of other))))
       | Opcode.Op_Not -> (
           let* a = pop span in
           match a with
-          | Value.VBool b ->
-              push (Value.VBool (not b));
+          | VBool b ->
+              push (VBool (not b));
               incr ip;
               dispatch ()
           | other ->
               Error
                 (Diagnostic.error ~code:Error_code.E2001_type_error ~span
                    (Printf.sprintf "Type error: operator '!' expects boolean, got %s"
-                      (Value.type_of other))))
+                      (type_of other))))
       | Opcode.Op_Eq ->
           let* b = pop span in
           let* a = pop span in
-          push (Value.VBool (Value.equal a b));
+          push (VBool (equal a b));
           incr ip;
           dispatch ()
       | Opcode.Op_Neq ->
           let* b = pop span in
           let* a = pop span in
-          push (Value.VBool (not (Value.equal a b)));
+          push (VBool (not (equal a b)));
           incr ip;
           dispatch ()
       | Opcode.Op_Lt -> (
           let* b = pop span in
           let* a = pop span in
           match (a, b) with
-          | Value.VInt x, Value.VInt y ->
-              push (Value.VBool (x < y));
+          | VInt x, VInt y ->
+              push (VBool (x < y));
               incr ip;
               dispatch ()
-          | Value.VString x, Value.VString y ->
-              push (Value.VBool (String.compare x y < 0));
+          | VString x, VString y ->
+              push (VBool (String.compare x y < 0));
               incr ip;
               dispatch ()
           | _ ->
@@ -305,12 +400,12 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
           let* b = pop span in
           let* a = pop span in
           match (a, b) with
-          | Value.VInt x, Value.VInt y ->
-              push (Value.VBool (x <= y));
+          | VInt x, VInt y ->
+              push (VBool (x <= y));
               incr ip;
               dispatch ()
-          | Value.VString x, Value.VString y ->
-              push (Value.VBool (String.compare x y <= 0));
+          | VString x, VString y ->
+              push (VBool (String.compare x y <= 0));
               incr ip;
               dispatch ()
           | _ ->
@@ -321,12 +416,12 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
           let* b = pop span in
           let* a = pop span in
           match (a, b) with
-          | Value.VInt x, Value.VInt y ->
-              push (Value.VBool (x > y));
+          | VInt x, VInt y ->
+              push (VBool (x > y));
               incr ip;
               dispatch ()
-          | Value.VString x, Value.VString y ->
-              push (Value.VBool (String.compare x y > 0));
+          | VString x, VString y ->
+              push (VBool (String.compare x y > 0));
               incr ip;
               dispatch ()
           | _ ->
@@ -337,12 +432,12 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
           let* b = pop span in
           let* a = pop span in
           match (a, b) with
-          | Value.VInt x, Value.VInt y ->
-              push (Value.VBool (x >= y));
+          | VInt x, VInt y ->
+              push (VBool (x >= y));
               incr ip;
               dispatch ()
-          | Value.VString x, Value.VString y ->
-              push (Value.VBool (String.compare x y >= 0));
+          | VString x, VString y ->
+              push (VBool (String.compare x y >= 0));
               incr ip;
               dispatch ()
           | _ ->
@@ -354,25 +449,19 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
           let base = match !call_stack with [] -> 0 | frame :: _ -> frame.base_sp in
           let captured_env =
             Array.fold_left
-              (fun env (name, slot) -> Env.extend name !stack.(base + slot) env)
+              (fun env (name, slot) -> (name, !stack.(base + slot)) :: env)
               !cur_env child.captures
           in
-          let param = match child.param with Some p -> p | None -> "_" in
-          let body =
-            match child.body with
-            | Some b -> b
-            | None -> Core_ir.make_expr ~span (Lit (Int 0))
-          in
-          let closure_val = Value.closure ~param ~body ~env:captured_env in
+          let closure_val = VClosure { chunk = child; env = captured_env } in
           push closure_val;
           incr ip;
           dispatch ()
       | Opcode.Op_TieRec name ->
           let top = peek () in
           (match top with
-          | Value.VClosure { param; body; env = c_env } ->
-              let rec_env = Env.extend_rec name param body c_env in
-              !stack.(!sp - 1) <- Value.closure ~param ~body ~env:rec_env
+          | VClosure { chunk; env = c_env } ->
+              let rec rec_env = (name, VClosure { chunk; env = rec_env }) :: c_env in
+              !stack.(!sp - 1) <- VClosure { chunk; env = rec_env }
           | _ -> ());
           incr ip;
           dispatch ()
@@ -380,10 +469,7 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
           let* arg = pop span in
           let* fn_val = pop span in
           match fn_val with
-          | Value.VClosure { param; body; env = c_env } ->
-              let callee_chunk =
-                resolve_callee_chunk !cur_chunk !call_stack ~param body
-              in
+          | VClosure { chunk = callee_chunk; env = c_env } ->
               let frame =
                 { chunk = !cur_chunk; ip = !ip + 1; base_sp = !sp; env = !cur_env }
               in
@@ -397,7 +483,7 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
               Error
                 (Diagnostic.error ~code:Error_code.E2001_type_error ~span
                    (Printf.sprintf "Type error: expected a function, got %s"
-                      (Value.type_of other))))
+                      (type_of other))))
       | Opcode.Op_Return -> (
           let* return_val = pop span in
           match !call_stack with
@@ -420,6 +506,24 @@ let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode
     Error
       (Diagnostic.error ~code:Error_code.E0002_internal_error ~span
          (Printf.sprintf "Runtime failure: %s" (Printexc.to_string exn)))
+
+let run_outcome ?(fuel = default_fuel) ?(env = Env.empty) (main_chunk : Bytecode.chunk) :
+    (vm_outcome, Diagnostic.t) result =
+  let vm_env = env_of_eval_env env in
+  match run_vm_outcome ~fuel ~env:vm_env main_chunk with
+  | Ok raw ->
+      Ok
+        {
+          value = value_to_eval_value raw.value;
+          env = env_to_eval_env raw.env;
+          steps = raw.steps;
+        }
+  | Error diag -> Error diag
+
+let run_vm ?fuel ?env chunk =
+  match run_vm_outcome ?fuel ?env chunk with
+  | Ok outcome -> Ok outcome.value
+  | Error diag -> Error diag
 
 let run ?fuel ?env chunk =
   match run_outcome ?fuel ?env chunk with

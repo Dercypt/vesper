@@ -76,12 +76,13 @@ let build_chunk builder : Bytecode.chunk =
     ~children:(Dynarray.to_array builder.children)
     ?param:builder.param ?body:builder.body ~captures:builder.captures ()
 
-let rec compile_fun ?(captures = [||]) ~param (body : Core_ir.expr) : Bytecode.chunk =
+let rec compile_fun ?(captures = [||]) ~param (body : Core_ir.expr) :
+    (Bytecode.chunk, Ast.error) result =
   let builder = create_builder ~param ~body ~captures ~init_depth:1 () in
   ignore (add_local builder param ~slot:0);
-  (match compile_expr_into builder body with Ok () -> () | Error _ -> ());
+  let* () = compile_expr_into builder body in
   ignore (emit builder ~span:body.span Opcode.Op_Return);
-  build_chunk builder
+  Ok (build_chunk builder)
 
 and compile_expr_into builder (e : Core_ir.expr) : (unit, Ast.error) result =
   match e.desc with
@@ -164,7 +165,7 @@ and compile_expr_into builder (e : Core_ir.expr) : (unit, Ast.error) result =
       let captures =
         List.rev_map (fun l -> (l.name, l.slot)) !(builder.locals) |> Array.of_list
       in
-      let child_chunk = compile_fun ~captures ~param body in
+      let* child_chunk = compile_fun ~captures ~param body in
       let child_idx = Dynarray.length builder.children in
       Dynarray.add_last builder.children child_chunk;
       ignore (emit builder ~span:e.span (Opcode.Op_Closure child_idx));

@@ -111,6 +111,78 @@ let test_vm_errors () =
       Alcotest.(check bool) "type error" true (String.sub msg 0 10 = "Type error")
   | Ok () -> Alcotest.fail "Expected type error"
 
+let test_static_closures () =
+  let run_src src =
+    match Parse_facade.parse_string ~file:"<test>" src with
+    | Error diag -> Error diag.message
+    | Ok ast -> (
+        match Compiler.compile ast with
+        | Error err -> Error err.message
+        | Ok chunk -> (
+            match VM.run_outcome_ast_error chunk with
+            | Ok out -> Ok out.value
+            | Error err -> Error err.message))
+  in
+  (* Closure returned from outer function (higher-order return) *)
+  (match
+     run_src
+       "let make_adder x = (let add_x y = x + y in add_x); let add10 = make_adder 10; \
+        add10 5;"
+   with
+  | Ok (Value.VInt 15) -> ()
+  | _ -> Alcotest.fail "Expected 15 from returned closure");
+  (* Higher-order argument *)
+  (match run_src "let apply f x = f x; let square x = x * x; apply square 7;" with
+  | Ok (Value.VInt 49) -> ()
+  | _ -> Alcotest.fail "Expected 49 from higher-order argument");
+  (* Curried 3 arguments *)
+  (match run_src "let add3 a b c = a + b + c; add3 10 20 30;" with
+  | Ok (Value.VInt 60) -> ()
+  | _ -> Alcotest.fail "Expected 60 from curried 3 args");
+  (* Local recursive function *)
+  (match run_src "let rec f n = if n <= 1 then 1 else n * f (n - 1); f 4;" with
+  | Ok (Value.VInt 24) -> ()
+  | _ -> Alcotest.fail "Expected 24 from recursion");
+  (* Native VM closure execution returning Vm.value *)
+  match Parse_facade.parse_string ~file:"<test>" "let f x = x + 1; f;" with
+  | Error diag -> Alcotest.fail diag.message
+  | Ok ast -> (
+      match Compiler.compile ast with
+      | Error err -> Alcotest.fail err.message
+      | Ok chunk -> (
+          match VM.run_vm chunk with
+          | Ok (VM.VClosure { chunk = fn_chunk; _ }) ->
+              Alcotest.(check bool)
+                "compiled closure has instructions" true
+                (Bytecode.length fn_chunk > 0)
+          | _ -> Alcotest.fail "Expected VM.VClosure from run_vm"))
+
+let test_compile_fun_error_propagation () =
+  let valid_span =
+    { Ast.file = "<test>"; start_line = 1; start_col = 0; end_line = 1; end_col = 10 }
+  in
+  (* Malformed Core_ir expr with bad primop arity inside a lambda body *)
+  let bad_primop =
+    Core_ir.make_expr ~span:valid_span
+      (PrimOp { op = Add; args = [ Core_ir.make_expr ~span:valid_span (Lit (Int 1)) ] })
+  in
+  (* Compiler.compile_fun must fail and not swallow the error *)
+  (match Compiler.compile_fun ~param:"x" bad_primop with
+  | Error err ->
+      Alcotest.(check string)
+        "compile_fun propagates error" "Invalid primop arity for +" err.message
+  | Ok _ -> Alcotest.fail "Expected compile_fun to fail on invalid primop arity");
+  (* Whole expr compilation with Fun must also propagate the error *)
+  let fun_expr =
+    Core_ir.make_expr ~span:valid_span (Fun { param = "x"; body = bad_primop })
+  in
+  match Compiler.compile_expr fun_expr with
+  | Error err ->
+      Alcotest.(check string)
+        "compile_expr propagates error" "PrimOp '+' expects 2 arguments but received 1"
+        err.message
+  | Ok _ -> Alcotest.fail "Expected compile_expr to fail on invalid lambda body"
+
 let () =
   let open Alcotest in
   run "Vesper Bytecode VM Unit Tests"
@@ -124,4 +196,14 @@ let () =
       );
       ( "VM Error Handling",
         [ test_case "Runtime safety and error traps" `Quick test_vm_errors ] );
+      ( "Static Closures",
+        [
+          test_case "Static closures and pre-compiled functions" `Quick
+            test_static_closures;
+        ] );
+      ( "Compiler Error Propagation",
+        [
+          test_case "compile_fun error propagation" `Quick
+            test_compile_fun_error_propagation;
+        ] );
     ]
