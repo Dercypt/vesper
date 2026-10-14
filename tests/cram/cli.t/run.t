@@ -96,7 +96,9 @@ Inline expressions (-e) parse and validate, while raw files require subcommands:
   Try 'vesper --help' for usage.
   [2]
   $ vesper -e 'let x = 1;'
-  Successfully parsed 1 declaration(s).
+  1
+  $ vesper -e '2 + 2;'
+  4
   $ vesper -e '1 + true;'
   error[E1008]: Type mismatch: expected 'int', but got 'bool'
     --> <cli>:1:0-1:8
