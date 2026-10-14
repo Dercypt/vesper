@@ -19,6 +19,26 @@ Injected into every Vesper program:
 * `is_positive : int -> bool`
 * `is_negative : int -> bool`
 * `not : bool -> bool`
+* `add : int -> int -> int`
+* `sub : int -> int -> int`
+* `mul : int -> int -> int`
+* `div : int -> int -> int`
+* `rem : int -> int -> int`
+* `modulo : int -> int -> int`
+* `is_even : int -> bool`
+* `is_odd : int -> bool`
+* `pow : int -> int -> int`
+* `fact : int -> int`
+* `gcd : int -> int -> int`
+* `lcm : int -> int -> int`
+* `isqrt : int -> int`
+* `fib : int -> int`
+* `digit_to_str : int -> string`
+* `int_to_str : int -> string`
+* `bool_to_str : bool -> string`
+* `string_concat : string -> string -> string`
+* `string_is_empty : string -> bool`
+
 
 ## Host Modules (`lib/stdlib/`)
 

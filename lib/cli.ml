@@ -130,6 +130,9 @@ let cmd_run file =
           | Ok chunk -> (
               match Vm.run chunk with
               | Ok Value.VUnit -> 0
+              | Ok (Value.VString s) ->
+                  print_endline s;
+                  0
               | Ok v ->
                   print_endline (Value.to_string v);
                   0
