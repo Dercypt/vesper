@@ -15,6 +15,8 @@ Running a program prints its final value (strings output unescaped):
   $ vesper run str.vesper
   hello
   world
+  $ printf '1 + 2;\n' | vesper run /dev/stdin
+  3
 
 Checking:
 

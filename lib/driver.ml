@@ -3,10 +3,7 @@ let read_file path : (string, Diagnostic.t) result =
     let ic = open_in_bin path in
     Fun.protect
       ~finally:(fun () -> close_in_noerr ic)
-      (fun () ->
-        let len = in_channel_length ic in
-        let buf = really_input_string ic len in
-        Ok buf)
+      (fun () -> Ok (In_channel.input_all ic))
   with
   | Sys_error msg ->
       let span = Ast.dummy_span in
