@@ -7,10 +7,14 @@ Help and version:
   
   Usage:
 
-Running a program prints its final value:
+Running a program prints its final value (strings output unescaped):
 
   $ vesper run ok.vesper
   84
+  $ printf '"hello\\nworld";\n' > str.vesper
+  $ vesper run str.vesper
+  hello
+  world
 
 Checking:
 
