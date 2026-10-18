@@ -30,14 +30,14 @@ Checking:
      |            ^
   [1]
   $ vesper check type_error.vesper
-  error[E1008]: Type mismatch: expected 'int', but got 'bool'
+  error[E2001]: Type mismatch: expected 'int', but got 'bool'
     --> type_error.vesper:1:8-1:16
      |
    1 | let x = 1 + true;
      |         ^^^^^^^^
   [1]
   $ vesper run type_error.vesper 2>&1 | head -1
-  error[E1008]: Type mismatch: expected 'int', but got 'bool'
+  error[E2001]: Type mismatch: expected 'int', but got 'bool'
 
 Formatting to stdout, and in place:
 
@@ -100,7 +100,7 @@ Inline expressions (-e) parse and validate, while raw files require subcommands:
   $ vesper -e '2 + 2;'
   4
   $ vesper -e '1 + true;'
-  error[E1008]: Type mismatch: expected 'int', but got 'bool'
+  error[E2001]: Type mismatch: expected 'int', but got 'bool'
     --> <cli>:1:0-1:8
      |
    1 | 1 + true;

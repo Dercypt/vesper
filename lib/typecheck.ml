@@ -334,7 +334,8 @@ let typecheck_program ?(env = Type_env.empty) (prog : Ast.program) :
       | d :: rest -> (
           match typecheck_decl ~env:cur_env d with
           | Ok (typed_d, next_env) -> check_decls next_env (typed_d :: acc) rest
-          | Error err -> Error [ Diagnostic.of_ast_error err ])
+          | Error err ->
+              Error [ Diagnostic.of_ast_error ~code:Error_code.E2001_type_error err ])
     in
     check_decls env [] prog.decls
 
