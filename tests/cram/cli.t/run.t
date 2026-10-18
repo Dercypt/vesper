@@ -120,7 +120,7 @@ REPL keeps state, survives errors, and supports multi-line input:
   vesper> val x : int = 42
   vesper>    ...> val g : int -> int = <fun y>
   vesper> - : int = 43
-  vesper> error[E1008]: Division by zero
+  vesper> error[E5001]: Division by zero
     --> <repl>:1:0-1:5
      |
    1 | x / 0;
