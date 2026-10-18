@@ -65,6 +65,13 @@ Disassembly with span mappings:
   0000  Op_Const 0           ; 40  (ok.vesper:1:8-1:10)
   0001  Op_Const 1           ; 2  (ok.vesper:1:13-1:14)
   0002  Op_Add                (ok.vesper:1:8-1:14)
+  $ vesper disasm type_error.vesper
+  error[E2001]: Type mismatch: expected 'int', but got 'bool'
+    --> type_error.vesper:1:8-1:16
+     |
+   1 | let x = 1 + true;
+     |         ^^^^^^^^
+  [1]
 
 Malformed arguments yield usage errors, never exceptions:
 
@@ -95,6 +102,7 @@ Inline expressions (-e) parse and validate, while raw files require subcommands:
   vesper: unknown command 'ok.vesper'
   Try 'vesper --help' for usage.
   [2]
+  $ vesper -e ""
   $ vesper -e 'let x = 1;'
   1
   $ vesper -e '2 + 2;'

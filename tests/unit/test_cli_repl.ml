@@ -39,6 +39,10 @@ let test_parse_args () =
 let test_eval () =
   Alcotest.(check int) "eval valid" 0 (Cli.main [| "vesper"; "-e"; "let x = 1 + 2;" |]);
   Alcotest.(check int) "eval expr" 0 (Cli.main [| "vesper"; "-e"; "2 + 2;" |]);
+  Alcotest.(check int) "eval empty" 0 (Cli.main [| "vesper"; "-e"; "" |]);
+  Alcotest.(check int)
+    "eval comment only" 0
+    (Cli.main [| "vesper"; "-e"; "/* empty */" |]);
   Alcotest.(check int)
     "eval type mismatch returns 1" 1
     (Cli.main [| "vesper"; "-e"; "1 + true;" |]);
