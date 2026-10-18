@@ -83,9 +83,26 @@ let test_compiler_and_vm_basic () =
   (match run_src "let f x = x * x; f 6;" with
   | Ok (Value.VInt 36) -> ()
   | _ -> Alcotest.fail "Expected 36");
-  match run_src "let rec fact n = if n <= 1 then 1 else n * fact (n - 1); fact 5;" with
+  (match run_src "let rec fact n = if n <= 1 then 1 else n * fact (n - 1); fact 5;" with
   | Ok (Value.VInt 120) -> ()
-  | _ -> Alcotest.fail "Expected 120"
+  | _ -> Alcotest.fail "Expected 120");
+  let parse_and_compile src =
+    match Parse_facade.parse_string ~file:"<test>" src with
+    | Error diag -> failwith diag.message
+    | Ok ast -> (
+        match Compiler.compile ast with
+        | Error err -> failwith err.message
+        | Ok chunk -> chunk)
+  in
+  let chunk_direct = parse_and_compile "21 * 2;" in
+  (match VM.run chunk_direct with
+  | Ok (Value.VInt 42) -> ()
+  | _ -> Alcotest.fail "Expected 42 from VM.run");
+  let chunk_env = parse_and_compile "x + y;" in
+  let env = [ ("x", Value.VInt 10); ("y", Value.VInt 32) ] in
+  match VM.run ~env chunk_env with
+  | Ok (Value.VInt 42) -> ()
+  | _ -> Alcotest.fail "Expected 42 from VM.run with env"
 
 let test_vm_errors () =
   let run_src src =
