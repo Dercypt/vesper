@@ -39,6 +39,10 @@ let test_parse_args () =
 let test_eval () =
   Alcotest.(check int) "eval valid" 0 (Cli.main [| "vesper"; "-e"; "let x = 1 + 2;" |]);
   Alcotest.(check int) "eval expr" 0 (Cli.main [| "vesper"; "-e"; "2 + 2;" |]);
+  Alcotest.(check int) "eval empty" 0 (Cli.main [| "vesper"; "-e"; "" |]);
+  Alcotest.(check int)
+    "eval comment only" 0
+    (Cli.main [| "vesper"; "-e"; "/* empty */" |]);
   Alcotest.(check int)
     "eval type mismatch returns 1" 1
     (Cli.main [| "vesper"; "-e"; "1 + true;" |]);
@@ -59,8 +63,18 @@ let test_repl_state () =
 let test_repl_errors () =
   let st = Repl.initial () in
   Alcotest.(check bool) "syntax" true (is_error (Repl.eval_input st "let = ;"));
-  Alcotest.(check bool) "type" true (is_error (Repl.eval_input st "1 + true;"));
-  Alcotest.(check bool) "runtime" true (is_error (Repl.eval_input st "1 / 0;"));
+  (match Repl.eval_input st "1 + true;" with
+  | Error [ diag ] ->
+      Alcotest.(check bool)
+        "type error code E2001" true
+        (Error_code.equal diag.code Error_code.E2001_type_error)
+  | _ -> Alcotest.fail "Expected E2001 type error");
+  (match Repl.eval_input st "1 / 0;" with
+  | Error [ diag ] ->
+      Alcotest.(check bool)
+        "runtime error code E5001" true
+        (Error_code.equal diag.code Error_code.E5001_division_by_zero)
+  | _ -> Alcotest.fail "Expected E5001 division by zero error");
   Alcotest.(check bool) "unbound" true (is_error (Repl.eval_input st "nope;"))
 
 let test_repl_run () =

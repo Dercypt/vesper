@@ -525,9 +525,10 @@ let run_vm ?fuel ?env chunk =
   | Ok outcome -> Ok outcome.value
   | Error diag -> Error diag
 
-let run ?fuel ?env chunk =
-  match run_outcome ?fuel ?env chunk with
-  | Ok outcome -> Ok outcome.value
+let run ?(fuel = default_fuel) ?(env = Env.empty) chunk =
+  let vm_env = env_of_eval_env env in
+  match run_vm_outcome ~fuel ~env:vm_env chunk with
+  | Ok outcome -> Ok (value_to_eval_value outcome.value)
   | Error diag -> Error diag
 
 let run_ast_error ?fuel ?env chunk =

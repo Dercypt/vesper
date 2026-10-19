@@ -125,32 +125,37 @@ let cmd_run file =
       match typecheck ~source prog with
       | Error c -> c
       | Ok () -> (
-          match compile_with_prelude ~source prog with
-          | Error c -> c
-          | Ok chunk -> (
-              match Vm.run chunk with
-              | Ok Value.VUnit -> 0
-              | Ok (Value.VString s) ->
-                  print_endline s;
-                  0
-              | Ok v ->
-                  print_endline (Value.to_string v);
-                  0
-              | Error d ->
-                  report ~source d;
-                  1)))
+          if prog.decls = [] then 0
+          else
+            match compile_with_prelude ~source prog with
+            | Error c -> c
+            | Ok chunk -> (
+                match Vm.run chunk with
+                | Ok Value.VUnit -> 0
+                | Ok (Value.VString s) ->
+                    print_endline s;
+                    0
+                | Ok v ->
+                    print_endline (Value.to_string v);
+                    0
+                | Error d ->
+                    report ~source d;
+                    1)))
 
 let cmd_disasm file =
   match load file with
   | Error c -> c
   | Ok (source, prog) -> (
-      match Compiler.compile prog with
-      | Ok chunk ->
-          print_string (Disasm.to_string ~name:file chunk);
-          0
-      | Error e ->
-          report ~source (Diagnostic.of_ast_error e);
-          1)
+      match typecheck ~source prog with
+      | Error c -> c
+      | Ok () -> (
+          match Compiler.compile prog with
+          | Ok chunk ->
+              print_string (Disasm.to_string ~name:file chunk);
+              0
+          | Error e ->
+              report ~source (Diagnostic.of_ast_error e);
+              1))
 
 let write_file path contents =
   try
@@ -206,20 +211,22 @@ let cmd_eval source =
       match typecheck ~source prog with
       | Error c -> c
       | Ok () -> (
-          match compile_with_prelude ~source prog with
-          | Error c -> c
-          | Ok chunk -> (
-              match Vm.run chunk with
-              | Ok Value.VUnit -> 0
-              | Ok (Value.VString s) ->
-                  print_endline s;
-                  0
-              | Ok v ->
-                  print_endline (Value.to_string v);
-                  0
-              | Error d ->
-                  report ~source d;
-                  1)))
+          if prog.decls = [] then 0
+          else
+            match compile_with_prelude ~source prog with
+            | Error c -> c
+            | Ok chunk -> (
+                match Vm.run chunk with
+                | Ok Value.VUnit -> 0
+                | Ok (Value.VString s) ->
+                    print_endline s;
+                    0
+                | Ok v ->
+                    print_endline (Value.to_string v);
+                    0
+                | Error d ->
+                    report ~source d;
+                    1)))
 
 let execute = function
   | Help ->

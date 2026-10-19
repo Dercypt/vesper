@@ -231,6 +231,9 @@ let test_diagnostics_and_spans () =
           Alcotest.(check bool) "span is valid" true (Ast.span_is_valid diag.span);
           Alcotest.(check int) "start line 1" 1 diag.span.start_line;
           Alcotest.(check bool)
+            "diagnostic code is E2001" true
+            (Error_code.equal diag.code Error_code.E2001_type_error);
+          Alcotest.(check bool)
             "diagnostic message non-empty" true
             (String.length diag.message > 0))
 

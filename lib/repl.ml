@@ -24,21 +24,27 @@ let eval_input_exn st src =
                 let rec go env lines = function
                   | [] -> Ok (env, List.rev lines)
                   | ((td : Typecheck.typed_decl), cd) :: rest -> (
-                      match Eval.eval_decl env cd with
+                      match Compiler.compile_decl cd with
                       | Error e -> Error [ Diagnostic.of_ast_error e ]
-                      | Ok (v, env') ->
-                          let line =
-                            match td.desc with
-                            | Typecheck.TypedLetDecl { name; scheme; _ } ->
-                                Printf.sprintf "val %s : %s = %s" name
-                                  (Types.scheme_to_string (Types.normalize_scheme scheme))
-                                  (render_value v)
-                            | Typecheck.TypedExprDecl e ->
-                                Printf.sprintf "- : %s = %s"
-                                  (Types.to_string (Types.normalize_vars e.ty))
-                                  (render_value v)
-                          in
-                          go env' (line :: lines) rest)
+                      | Ok chunk -> (
+                          match Vm.run_outcome ~env chunk with
+                          | Error diag -> Error [ diag ]
+                          | Ok outcome ->
+                              let v = outcome.value in
+                              let env' = outcome.env in
+                              let line =
+                                match td.desc with
+                                | Typecheck.TypedLetDecl { name; scheme; _ } ->
+                                    Printf.sprintf "val %s : %s = %s" name
+                                      (Types.scheme_to_string
+                                         (Types.normalize_scheme scheme))
+                                      (render_value v)
+                                | Typecheck.TypedExprDecl e ->
+                                    Printf.sprintf "- : %s = %s"
+                                      (Types.to_string (Types.normalize_vars e.ty))
+                                      (render_value v)
+                              in
+                              go env' (line :: lines) rest))
                 in
                 match go st.eval_env [] (List.combine typed.decls core.decls) with
                 | Error ds -> Error ds
