@@ -23,6 +23,7 @@ fact 5;
 * `bool`: `true`, `false`.
 * `string`: `"text"` (escapes: `\n`, `\t`, `\\`, `\"`). Concatenation via `+`.
 * `'a -> 'b`: Function types. Hindley-Milner type inference (Algorithm W).
+* **Overloaded Operators & Deferred Defaulting**: `+` and comparisons (`<`, `<=`, `>`, `>=`) operate on both `int` and `string`. When operands are unresolved type variables, defaulting to `int` is deferred until `generalize` at the enclosing `let` or expression boundary, making type inference order-independent for compound expressions (e.g., `let shout s = (s + s) + "!";`).
 
 ## Operators
 
@@ -31,7 +32,7 @@ fact 5;
 | `\|\|` | Left | Logical OR |
 | `&&` | Left | Logical AND |
 | `==`, `!=` | Non-assoc | Structural equality |
-| `<`, `<=`, `>`, `>=` | Non-assoc | Integer comparisons |
+| `<`, `<=`, `>`, `>=` | Non-assoc | Comparisons (integers and strings) |
 | `+`, `-` | Left | Addition, string concatenation, subtraction |
 | `*`, `/`, `%` | Left | Multiplication, division, modulo |
 | `!`, `-` (unary) | Right | Logical negation, arithmetic negation |

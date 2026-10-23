@@ -266,6 +266,39 @@ let test_law1_host_isolation () =
   | Error err ->
       Alcotest.(check bool) "Invalid span detected" true (String.length err.message > 0)
 
+let test_overloaded_operators_and_deferred_defaulting () =
+  (* Left-to-right and right-to-left overloaded string concatenation *)
+  check_type "left-to-right shout" "string" "let shout s = (s + s) + \"!\"; shout \"hi\";";
+  check_type "right-to-left shout" "string" "let shout s = \"!\" + (s + s); shout \"hi\";";
+  check_type "nested binop concatenation" "string"
+    "let string_concat a b = a + b + \"\"; string_concat \"foo\" \"bar\";";
+  check_type "lambda application without let" "string" "(fun x -> x + x) \"hi\";";
+
+  (* Comparisons resolved to string *)
+  check_type "comparison resolved to string" "bool"
+    "let cmp s = (s < s) && (s == \"hi\"); cmp \"hi\";";
+  check_type "comparison resolved to string reverse" "bool"
+    "let cmp s = (s == \"hi\") && (s < s); cmp \"hi\";";
+
+  (* Defaulting unresolved operands at let boundary to TyInt *)
+  check_type "default binop add" "int -> int -> int" "let add a b = a + b; add;";
+  check_type "default binop compare" "int -> int -> bool" "let cmp a b = a < b; cmp;";
+  check_type "default double" "int -> int" "let double x = x + x; double;";
+  check_type "default self compare" "int -> bool" "let f x = x < x; f;";
+  check_type "compare result with bool" "int -> bool" "let f x = (x < x) && true; f;";
+
+  (* Non-overloaded variables retain full polymorphism *)
+  check_type "id polymorphic" "'a -> 'a" "let id x = x; id;";
+  check_type "const polymorphic" "'a -> 'b -> 'a" "let const x y = x; const;";
+
+  (* Diagnostic errors when overloaded operands unify with incompatible types *)
+  check_type_err "overloaded add unified with bool"
+    "operator '+' expects integers or strings, but got 'bool'"
+    "let bad x = (x + x) && true; bad;";
+  check_type_err "overloaded compare unified with bool"
+    "comparison operator expects integers or strings, but got 'bool'"
+    "let bad x = (x < x) && (x == true); bad;"
+
 let () =
   let open Alcotest in
   run "Vesper Static Typechecker Unit Tests"
@@ -289,4 +322,9 @@ let () =
         [ test_case "Source span accuracy" `Quick test_diagnostics_and_spans ] );
       ( "Law 1 Host Isolation",
         [ test_case "No host exceptions on bad input" `Quick test_law1_host_isolation ] );
+      ( "Overloaded Operators & Deferred Defaulting",
+        [
+          test_case "Deferred defaulting and order independence" `Quick
+            test_overloaded_operators_and_deferred_defaulting;
+        ] );
     ]
