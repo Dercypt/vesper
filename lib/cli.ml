@@ -13,7 +13,8 @@ let usage =
       "  vesper repl                  Start an interactive session";
       "  vesper disasm <file>         Print disassembled bytecode";
       "  vesper lsp                   Serve the Language Server Protocol on stdin/stdout";
-      "  vesper -e <source>           Parse and validate inline source";
+      "  vesper -e <source>           Typecheck, compile to bytecode, and execute inline \
+       source";
       "  vesper --help                Display this help message";
       "  vesper --version             Display version information";
       "";

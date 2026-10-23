@@ -97,7 +97,7 @@ vesper run hello.vesper
 | `vesper repl` | Start an interactive REPL session |
 | `vesper disasm <file>` | Display disassembled bytecode instructions |
 | `vesper lsp` | Run the Language Server Protocol (LSP) server over stdio |
-| `vesper -e "<expr>"` | Parse, typecheck, and validate inline source string |
+| `vesper -e "<expr>"` | Parse, typecheck, compile, and execute inline source string |
 
 ---
 
