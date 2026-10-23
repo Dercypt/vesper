@@ -315,6 +315,37 @@ let test_non_function_let_rec () =
   check_type_failure "let rec x = 1 in x;";
   check_type_failure "let rec x = x in x + 1;"
 
+let test_overloaded_operator_diagnostics () =
+  let samples =
+    [
+      "let bad x = (x + x) && true;";
+      "let bad x = (x < x) && (x == true);";
+      "let bad x = (x + x) == (fun y -> y); bad (fun z -> z);";
+      "(fun x -> x + x) true;";
+      "\"foo\" < 10;";
+      "10 + \"foo\";";
+    ]
+  in
+  List.iter
+    (fun s ->
+      match Parse_facade.parse_string ~file:"law1_overload.vesper" s with
+      | Error _ -> Alcotest.fail ("Parse failed on " ^ s)
+      | Ok ast -> (
+          match Typecheck.typecheck_program ast with
+          | Ok _ -> Alcotest.fail ("Expected type error on " ^ s)
+          | Error diags ->
+              Alcotest.(check bool) "Non-empty diagnostics" true (List.length diags > 0);
+              let diag = List.hd diags in
+              Alcotest.(check bool)
+                "Error code is E2001_type_error" true
+                (Error_code.equal diag.code Error_code.E2001_type_error);
+              Alcotest.(check bool)
+                "Span is valid and non-degenerate" true (Ast.span_is_valid diag.span);
+              Alcotest.(check bool)
+                "Diagnostic message is non-empty" true
+                (String.length diag.message > 0)))
+    samples
+
 let test_10000_adversarial_fuzzing () =
   Random.init 42;
   let sample_count = 10_000 in
@@ -348,6 +379,8 @@ let tests =
       test_structured_error_codes;
     test_case "Non-function let rec bindings reject cleanly under Law 1" `Quick
       test_non_function_let_rec;
+    test_case "Overloaded operator type violations isolate host under Law 1" `Quick
+      test_overloaded_operator_diagnostics;
     test_case "10,000 adversarial fuzzing inputs isolate host completely" `Quick
       test_10000_adversarial_fuzzing;
   ]
