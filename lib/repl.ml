@@ -1,7 +1,7 @@
 type t = { type_env : Type_env.t; eval_env : Env.t }
 
 let initial () =
-  { type_env = Prelude.default_type_env (); eval_env = Prelude.default_eval_env () }
+  { type_env = Prelude.default_type_env (); eval_env = Prelude.default_vm_env () }
 
 let internal_error msg =
   Diagnostic.error ~code:Error_code.E0002_internal_error ~span:Ast.dummy_span msg
