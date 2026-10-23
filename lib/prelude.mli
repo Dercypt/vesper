@@ -18,6 +18,10 @@ val default_eval_env : unit -> Env.t
 (** Pre-populated runtime evaluation environment containing closure bindings for standard
     library prelude functions. *)
 
+val default_vm_env : unit -> Env.t
+(** Pre-populated runtime VM evaluation environment containing compiled bytecode closure
+    bindings for standard library prelude functions. *)
+
 val with_prelude : Ast.program -> Ast.program
 (** Prepends the prelude declaration suite to a user compilation unit. *)
 

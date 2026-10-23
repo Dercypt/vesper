@@ -77,6 +77,17 @@ let cached_eval_env =
 
 let default_eval_env () = Lazy.force cached_eval_env
 
+let cached_vm_env =
+  lazy
+    (match Compiler.compile (prelude_ast ()) with
+    | Ok chunk -> (
+        match Vm.run_outcome chunk with
+        | Ok outcome -> outcome.env
+        | Error diag -> failwith ("Failed to evaluate prelude VM: " ^ diag.message))
+    | Error err -> failwith ("Failed to compile prelude: " ^ err.message))
+
+let default_vm_env () = Lazy.force cached_vm_env
+
 let with_prelude (prog : Ast.program) : Ast.program =
   let p_ast = prelude_ast () in
   { span = prog.span; decls = p_ast.decls @ prog.decls }
