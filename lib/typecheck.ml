@@ -109,7 +109,7 @@ let rec infer_internal (fresh : unit -> Types.t) (env : Type_env.t) (e : Ast.exp
         let final_s = Types.compose_subst s3 s12 in
         let final_ty = Types.apply s3 res_var in
         Ok (final_s, final_ty)
-    | Ast.Let { name; is_rec; args; value; body } ->
+    | Ast.Let { name; is_rec; args; value; body } -> (
         let value_expr =
           if args = [] then value
           else { Ast.span = value.span; desc = Ast.Fun { params = args; body = value } }
@@ -123,17 +123,26 @@ let rec infer_internal (fresh : unit -> Types.t) (env : Type_env.t) (e : Ast.exp
           let* s2, ty_body = infer_internal fresh env2 body in
           Ok (Types.compose_subst s2 s1, ty_body)
         else
-          let rec_var = fresh () in
-          let env_rec = Type_env.extend name (Types.Forall ([], rec_var)) env in
-          let* s1, ty_val = infer_internal fresh env_rec value_expr in
-          let* s2 = Unify.unify ~span:value.span (Types.apply s1 rec_var) ty_val in
-          let s12 = Types.compose_subst s2 s1 in
-          let final_ty_val = Types.apply s2 ty_val in
-          let env_outer = Type_env.apply_subst s12 env in
-          let scheme = Type_env.generalize env_outer final_ty_val in
-          let env_body = Type_env.extend name scheme env_outer in
-          let* s3, ty_body = infer_internal fresh env_body body in
-          Ok (Types.compose_subst s3 s12, ty_body)
+          match value_expr.desc with
+          | Ast.Fun _ ->
+              let rec_var = fresh () in
+              let env_rec = Type_env.extend name (Types.Forall ([], rec_var)) env in
+              let* s1, ty_val = infer_internal fresh env_rec value_expr in
+              let* s2 = Unify.unify ~span:value.span (Types.apply s1 rec_var) ty_val in
+              let s12 = Types.compose_subst s2 s1 in
+              let final_ty_val = Types.apply s2 ty_val in
+              let env_outer = Type_env.apply_subst s12 env in
+              let scheme = Type_env.generalize env_outer final_ty_val in
+              let env_body = Type_env.extend name scheme env_outer in
+              let* s3, ty_body = infer_internal fresh env_body body in
+              Ok (Types.compose_subst s3 s12, ty_body)
+          | _ ->
+              Error
+                {
+                  Ast.code = Some Error_code.E2001_type_error;
+                  span = value.span;
+                  message = "Recursive bindings must bind a function";
+                })
 
 and infer_binop ~span (op : Ast.binop) (ty_lhs : Types.t) (ty_rhs : Types.t)
     (s12 : Types.subst) (lhs_span : Ast.span) (rhs_span : Ast.span) :
