@@ -101,7 +101,20 @@ let rec validate_expr (e : expr) : (unit, error) result =
       }
   else
     match e.desc with
-    | Lit (Int _) | Lit (Bool _) | Lit (String _) -> Ok ()
+    | Lit (Int n) ->
+        if n < 0 then
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message =
+                Printf.sprintf
+                  "Integer literal cannot be negative: %d (negative constants must use \
+                   Unary Neg)"
+                  n;
+            }
+        else Ok ()
+    | Lit (Bool _) | Lit (String _) -> Ok ()
     | Var name ->
         if String.length name = 0 then
           Error

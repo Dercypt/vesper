@@ -19,7 +19,7 @@ fact 5;
 
 ## Types
 
-* `int`: 64-bit signed integers (`42`, `-10`).
+* `int`: 64-bit signed integers (`42`, `-10`). Negative constants are represented in the AST and surface syntax via unary negation (`-`).
 * `bool`: `true`, `false`.
 * `string`: `"text"` (escapes: `\n`, `\t`, `\\`, `\"`). Concatenation via `+`.
 * `'a -> 'b`: Function types. Hindley-Milner type inference (Algorithm W).
