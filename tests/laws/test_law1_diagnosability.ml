@@ -129,11 +129,11 @@ let test_driver_isolation () =
         "Has error code" true
         (Error_code.equal diag.code Error_code.E1001_unexpected_token));
 
-  (* Test Driver.run_cli never raises exceptions *)
-  let exit_code = Driver.run_cli [| "vesper"; "-e"; "let x =" |] in
+  (* Test Cli.main never raises exceptions *)
+  let exit_code = Cli.main [| "vesper"; "-e"; "let x =" |] in
   Alcotest.(check int) "CLI returns 1 on syntax error" 1 exit_code;
 
-  let exit_code_ok = Driver.run_cli [| "vesper"; "-e"; "let x = 42;" |] in
+  let exit_code_ok = Cli.main [| "vesper"; "-e"; "let x = 42;" |] in
   Alcotest.(check int) "CLI returns 0 on valid input" 0 exit_code_ok
 
 let test_diagnostic_rendering () =
