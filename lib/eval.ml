@@ -4,7 +4,17 @@ type eval_result = { value : Value.t; steps : int }
 type eval_outcome = { value : Value.t; env : Env.t; steps : int }
 
 let ( let* ) res f = match res with Ok v -> f v | Error e -> Error e
-let err span message : ('a, Ast.error) result = Error { Ast.span; message }
+
+let err ?code span message : ('a, Ast.error) result =
+  let code =
+    match code with
+    | Some c -> Some c
+    | None ->
+        if String.length message >= 10 && String.sub message 0 10 = "Type error" then
+          Some Error_code.E2001_type_error
+        else None
+  in
+  Error { Ast.code; span; message }
 
 let eval_primop ~span (op : Core_ir.primop) args steps fuel =
   match (op, args) with
@@ -32,11 +42,13 @@ let eval_primop ~span (op : Core_ir.primop) args steps fuel =
   | Core_ir.Mul, [ Value.VInt a; Value.VInt b ] -> Ok (Value.VInt (a * b), steps, fuel)
   | Core_ir.Mul, [ _; _ ] -> err span "Type error: operator '*' expects integers"
   | Core_ir.Mul, _ -> err span "Operator '*' expects 2 arguments"
-  | Core_ir.Div, [ Value.VInt _; Value.VInt 0 ] -> err span "Division by zero"
+  | Core_ir.Div, [ Value.VInt _; Value.VInt 0 ] ->
+      err ~code:Error_code.E5001_division_by_zero span "Division by zero"
   | Core_ir.Div, [ Value.VInt a; Value.VInt b ] -> Ok (Value.VInt (a / b), steps, fuel)
   | Core_ir.Div, [ _; _ ] -> err span "Type error: operator '/' expects integers"
   | Core_ir.Div, _ -> err span "Operator '/' expects 2 arguments"
-  | Core_ir.Mod, [ Value.VInt _; Value.VInt 0 ] -> err span "Division by zero"
+  | Core_ir.Mod, [ Value.VInt _; Value.VInt 0 ] ->
+      err ~code:Error_code.E5001_division_by_zero span "Division by zero"
   | Core_ir.Mod, [ Value.VInt a; Value.VInt b ] -> Ok (Value.VInt (a mod b), steps, fuel)
   | Core_ir.Mod, [ _; _ ] -> err span "Type error: operator '%' expects integers"
   | Core_ir.Mod, _ -> err span "Operator '%' expects 2 arguments"
@@ -71,7 +83,8 @@ let eval_primop ~span (op : Core_ir.primop) args steps fuel =
 
 let rec eval_step (env : Env.t) (fuel : int) (steps : int) (e : Core_ir.expr) :
     (Value.t * int * int, Ast.error) result =
-  if fuel <= 0 then err e.span "Execution budget exhausted"
+  if fuel <= 0 then
+    err ~code:Error_code.E5002_fuel_exhausted e.span "Execution budget exhausted"
   else
     match e.desc with
     | Lit (Int n) -> Ok (Value.VInt n, steps + 1, fuel)
@@ -109,7 +122,8 @@ let rec eval_step (env : Env.t) (fuel : int) (steps : int) (e : Core_ir.expr) :
     | App { fn; arg } -> (
         let* fn_val, steps_fn, fuel_fn = eval_step env fuel steps fn in
         let* arg_val, steps_arg, fuel_arg = eval_step env fuel_fn steps_fn arg in
-        if fuel_arg <= 1 then err e.span "Execution budget exhausted"
+        if fuel_arg <= 1 then
+          err ~code:Error_code.E5002_fuel_exhausted e.span "Execution budget exhausted"
         else
           match fn_val with
           | Value.VClosure { param; body; env = c_env } ->
@@ -141,7 +155,8 @@ let rec eval_step (env : Env.t) (fuel : int) (steps : int) (e : Core_ir.expr) :
 let eval_decl ?(fuel = default_fuel) (env : Env.t) (d : Core_ir.decl) :
     (Value.t * Env.t, Ast.error) result =
   try
-    if fuel <= 0 then err d.span "Execution budget exhausted"
+    if fuel <= 0 then
+      err ~code:Error_code.E5002_fuel_exhausted d.span "Execution budget exhausted"
     else
       match d.desc with
       | Core_ir.LetDecl { name; is_rec; value } ->
@@ -173,7 +188,8 @@ let eval_program_with_stats ?(fuel = default_fuel) ?(env = Env.empty)
     let rec loop cur_env cur_fuel cur_steps last_val = function
       | [] -> Ok { value = last_val; env = cur_env; steps = cur_steps }
       | (d : Core_ir.decl) :: rest -> (
-          if cur_fuel <= 0 then err d.span "Execution budget exhausted"
+          if cur_fuel <= 0 then
+            err ~code:Error_code.E5002_fuel_exhausted d.span "Execution budget exhausted"
           else
             match d.desc with
             | Core_ir.LetDecl { name; is_rec; value } ->

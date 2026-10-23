@@ -465,6 +465,7 @@ let rec resolve_path (root : Value.t) (p : path) : (Value.t, Ast.error) result =
               Error
                 Ast.
                   {
+                    code = Some Error_code.E0002_internal_error;
                     span = Ast.dummy_span;
                     message = Printf.sprintf "Record field '%s' not found" f;
                   })
@@ -472,6 +473,7 @@ let rec resolve_path (root : Value.t) (p : path) : (Value.t, Ast.error) result =
           Error
             Ast.
               {
+                code = Some Error_code.E2001_type_error;
                 span = Ast.dummy_span;
                 message =
                   Printf.sprintf "Expected record value at field '%s', got %s" f
@@ -486,6 +488,7 @@ let rec resolve_path (root : Value.t) (p : path) : (Value.t, Ast.error) result =
             Error
               Ast.
                 {
+                  code = Some Error_code.E0002_internal_error;
                   span = Ast.dummy_span;
                   message = Printf.sprintf "Constructor argument index %d out of bounds" i;
                 }
@@ -493,6 +496,7 @@ let rec resolve_path (root : Value.t) (p : path) : (Value.t, Ast.error) result =
           Error
             Ast.
               {
+                code = Some Error_code.E2001_type_error;
                 span = Ast.dummy_span;
                 message =
                   Printf.sprintf "Expected constructor value at arg %d, got %s" i
@@ -507,6 +511,7 @@ let rec resolve_path (root : Value.t) (p : path) : (Value.t, Ast.error) result =
             Error
               Ast.
                 {
+                  code = Some Error_code.E0002_internal_error;
                   span = Ast.dummy_span;
                   message = Printf.sprintf "Tuple element index %d out of bounds" i;
                 }
@@ -514,6 +519,7 @@ let rec resolve_path (root : Value.t) (p : path) : (Value.t, Ast.error) result =
           Error
             Ast.
               {
+                code = Some Error_code.E2001_type_error;
                 span = Ast.dummy_span;
                 message =
                   Printf.sprintf "Expected tuple value at element %d, got %s" i
@@ -526,6 +532,7 @@ let rec eval_tree ?(fuel = 10000) (env : Env.t) (root_val : Value.t)
     Error
       Ast.
         {
+          code = Some Error_code.E5002_fuel_exhausted;
           span = Ast.dummy_span;
           message = "Execution fuel exhausted during pattern matching evaluation";
         }
@@ -550,6 +557,7 @@ let rec eval_tree ?(fuel = 10000) (env : Env.t) (root_val : Value.t)
             Error
               Ast.
                 {
+                  code = Some Error_code.E2001_type_error;
                   span = Ast.dummy_span;
                   message =
                     Printf.sprintf "Expected bool in match switch, got %s"
@@ -562,7 +570,13 @@ let rec eval_tree ?(fuel = 10000) (env : Env.t) (root_val : Value.t)
               match default with
               | Some def_tree -> eval_tree ~fuel:(fuel - 1) env root_val def_tree
               | None ->
-                  Error Ast.{ span; message = "No matching literal pattern in switch" })
+                  Error
+                    Ast.
+                      {
+                        code = Some Error_code.E3001_non_exhaustive_match;
+                        span;
+                        message = "No matching literal pattern in switch";
+                      })
           | (lit, subtree) :: rest_cases ->
               let lit_matches =
                 match (lit, tv) with
@@ -588,6 +602,7 @@ let rec eval_tree ?(fuel = 10000) (env : Env.t) (root_val : Value.t)
                     Error
                       Ast.
                         {
+                          code = Some Error_code.E3001_non_exhaustive_match;
                           span;
                           message =
                             Printf.sprintf "Unhandled constructor '%s' in pattern match"
@@ -597,6 +612,7 @@ let rec eval_tree ?(fuel = 10000) (env : Env.t) (root_val : Value.t)
             Error
               Ast.
                 {
+                  code = Some Error_code.E2001_type_error;
                   span;
                   message =
                     Printf.sprintf "Expected constructor in switch, got %s"
@@ -619,6 +635,7 @@ let rec eval_tree ?(fuel = 10000) (env : Env.t) (root_val : Value.t)
             Error
               Ast.
                 {
+                  code = Some Error_code.E2001_type_error;
                   span = condition.span;
                   message =
                     Printf.sprintf "Match guard must evaluate to bool, got %s"
@@ -626,7 +643,12 @@ let rec eval_tree ?(fuel = 10000) (env : Env.t) (root_val : Value.t)
                 })
     | Failure { span } ->
         Error
-          Ast.{ span; message = "Pattern match failure: no clause matched runtime value" }
+          Ast.
+            {
+              code = Some Error_code.E3001_non_exhaustive_match;
+              span;
+              message = "Pattern match failure: no clause matched runtime value";
+            }
 
 let eval_match ?(fuel = 10000) ~sig_env ~span (env : Env.t) (root_val : Value.t)
     (clauses : Pattern.clause list) : (Value.t, Ast.error) result =
@@ -637,12 +659,20 @@ let eval_match ?(fuel = 10000) ~sig_env ~span (env : Env.t) (root_val : Value.t)
         Error
           Ast.
             {
+              code = Some Error_code.E3001_non_exhaustive_match;
               span;
               message =
                 Printf.sprintf "Non-exhaustive pattern match. Example unhandled case: %s"
                   (Pattern.to_string w);
             }
-    | None -> Error Ast.{ span; message = "Non-exhaustive pattern match" }
+    | None ->
+        Error
+          Ast.
+            {
+              code = Some Error_code.E3001_non_exhaustive_match;
+              span;
+              message = "Non-exhaustive pattern match";
+            }
   else
     let dummy_target = Core_ir.make_expr ~span (Core_ir.Lit (Ast.Int 0)) in
     let* tree = compile ~sig_env ~span ~target_expr:dummy_target clauses in

@@ -106,14 +106,19 @@ let resolve_module ~(path : Mod_ast.path) (root_ns : t) : (mod_entry, Ast.error)
   match path.segments with
   | [] ->
       Error
-        { Ast.span = path.span; message = "Cannot resolve empty module identifier path" }
+        {
+          Ast.code = Some Error_code.E4002_unbound_module;
+          span = path.span;
+          message = "Cannot resolve empty module identifier path";
+        }
   | [ (single : Mod_ast.path_segment) ] -> (
       match lookup_module single.name root_ns with
       | Some entry -> Ok entry
       | None ->
           Error
             {
-              Ast.span = single.span;
+              Ast.code = Some Error_code.E4002_unbound_module;
+              span = single.span;
               message = Printf.sprintf "Unbound module identifier '%s'" single.name;
             })
   | (first : Mod_ast.path_segment) :: rest -> (
@@ -121,7 +126,8 @@ let resolve_module ~(path : Mod_ast.path) (root_ns : t) : (mod_entry, Ast.error)
       | None ->
           Error
             {
-              Ast.span = first.span;
+              Ast.code = Some Error_code.E4002_unbound_module;
+              span = first.span;
               message = Printf.sprintf "Unbound module identifier '%s'" first.name;
             }
       | Some first_mod ->
@@ -132,7 +138,8 @@ let resolve_module ~(path : Mod_ast.path) (root_ns : t) : (mod_entry, Ast.error)
                 | None ->
                     Error
                       {
-                        Ast.span = last.span;
+                        Ast.code = Some Error_code.E4002_unbound_module;
+                        span = last.span;
                         message =
                           Printf.sprintf "Module '%s' has no submodule '%s'" cur_mod.name
                             last.name;
@@ -141,7 +148,8 @@ let resolve_module ~(path : Mod_ast.path) (root_ns : t) : (mod_entry, Ast.error)
                     if sub_mod.visibility = Private then
                       Error
                         {
-                          Ast.span = last.span;
+                          Ast.code = Some Error_code.E4004_private_member_access;
+                          span = last.span;
                           message =
                             Printf.sprintf
                               "Private member access: submodule '%s' is not exported by \
@@ -154,7 +162,8 @@ let resolve_module ~(path : Mod_ast.path) (root_ns : t) : (mod_entry, Ast.error)
                 | None ->
                     Error
                       {
-                        Ast.span = seg.span;
+                        Ast.code = Some Error_code.E4002_unbound_module;
+                        span = seg.span;
                         message =
                           Printf.sprintf "Module '%s' has no submodule '%s'" cur_mod.name
                             seg.name;
@@ -163,7 +172,8 @@ let resolve_module ~(path : Mod_ast.path) (root_ns : t) : (mod_entry, Ast.error)
                     if sub_mod.visibility = Private then
                       Error
                         {
-                          Ast.span = seg.span;
+                          Ast.code = Some Error_code.E4004_private_member_access;
+                          span = seg.span;
                           message =
                             Printf.sprintf
                               "Private member access: submodule '%s' is not exported by \
@@ -178,14 +188,19 @@ let resolve_val ~(path : Mod_ast.path) (root_ns : t) : (val_entry, Ast.error) re
   match path.segments with
   | [] ->
       Error
-        { Ast.span = path.span; message = "Cannot resolve empty value identifier path" }
+        {
+          Ast.code = Some Error_code.E2001_type_error;
+          span = path.span;
+          message = "Cannot resolve empty value identifier path";
+        }
   | [ (single : Mod_ast.path_segment) ] -> (
       match lookup_val single.name root_ns with
       | Some entry -> Ok entry
       | None ->
           Error
             {
-              Ast.span = single.span;
+              Ast.code = Some Error_code.E2001_type_error;
+              span = single.span;
               message = Printf.sprintf "Unbound value identifier '%s'" single.name;
             })
   | _ -> (
@@ -199,7 +214,8 @@ let resolve_val ~(path : Mod_ast.path) (root_ns : t) : (val_entry, Ast.error) re
               | None ->
                   Error
                     {
-                      Ast.span = last_seg.span;
+                      Ast.code = Some Error_code.E2001_type_error;
+                      span = last_seg.span;
                       message =
                         Printf.sprintf "Module '%s' has no member '%s'" mod_entry.name
                           last_seg.name;
@@ -208,7 +224,8 @@ let resolve_val ~(path : Mod_ast.path) (root_ns : t) : (val_entry, Ast.error) re
                   if val_ent.visibility = Private then
                     Error
                       {
-                        Ast.span = last_seg.span;
+                        Ast.code = Some Error_code.E4004_private_member_access;
+                        span = last_seg.span;
                         message =
                           Printf.sprintf
                             "Private member access: '%s' is not exported by module '%s'"
@@ -220,14 +237,19 @@ let resolve_type ~(path : Mod_ast.path) (root_ns : t) : (type_entry, Ast.error) 
   match path.segments with
   | [] ->
       Error
-        { Ast.span = path.span; message = "Cannot resolve empty type identifier path" }
+        {
+          Ast.code = Some Error_code.E2001_type_error;
+          span = path.span;
+          message = "Cannot resolve empty type identifier path";
+        }
   | [ (single : Mod_ast.path_segment) ] -> (
       match lookup_type single.name root_ns with
       | Some entry -> Ok entry
       | None ->
           Error
             {
-              Ast.span = single.span;
+              Ast.code = Some Error_code.E2001_type_error;
+              span = single.span;
               message = Printf.sprintf "Unbound type identifier '%s'" single.name;
             })
   | _ -> (
@@ -241,7 +263,8 @@ let resolve_type ~(path : Mod_ast.path) (root_ns : t) : (type_entry, Ast.error) 
               | None ->
                   Error
                     {
-                      Ast.span = last_seg.span;
+                      Ast.code = Some Error_code.E2001_type_error;
+                      span = last_seg.span;
                       message =
                         Printf.sprintf "Module '%s' has no type '%s'" mod_entry.name
                           last_seg.name;
@@ -250,7 +273,8 @@ let resolve_type ~(path : Mod_ast.path) (root_ns : t) : (type_entry, Ast.error) 
                   if type_ent.visibility = Private then
                     Error
                       {
-                        Ast.span = last_seg.span;
+                        Ast.code = Some Error_code.E4004_private_member_access;
+                        span = last_seg.span;
                         message =
                           Printf.sprintf
                             "Private member access: type '%s' is not exported by module \
@@ -302,7 +326,8 @@ let rec restrict_interface (signature : Mod_ast.mod_sig) (ns : t) : (t, Ast.erro
                 if not (StringMap.mem spec.name ns.values) then
                   Error
                     {
-                      Ast.span = spec.span;
+                      Ast.code = Some Error_code.E4003_interface_mismatch;
+                      span = spec.span;
                       message =
                         Printf.sprintf
                           "Interface conformance error: required value '%s' is not \
@@ -317,7 +342,8 @@ let rec restrict_interface (signature : Mod_ast.mod_sig) (ns : t) : (t, Ast.erro
                 if not (StringMap.mem spec.name ns.types) then
                   Error
                     {
-                      Ast.span = spec.span;
+                      Ast.code = Some Error_code.E4003_interface_mismatch;
+                      span = spec.span;
                       message =
                         Printf.sprintf
                           "Interface conformance error: required type '%s' is not \
@@ -333,7 +359,8 @@ let rec restrict_interface (signature : Mod_ast.mod_sig) (ns : t) : (t, Ast.erro
                 | None ->
                     Error
                       {
-                        Ast.span;
+                        Ast.code = Some Error_code.E4003_interface_mismatch;
+                        span;
                         message =
                           Printf.sprintf
                             "Interface conformance error: required submodule '%s' is not \

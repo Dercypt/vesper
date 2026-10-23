@@ -12,7 +12,8 @@ let bind_var ~span (var_id : int) (ty : Types.t) : (Types.subst, Ast.error) resu
   | _ when occurs_check var_id ty ->
       Error
         {
-          Ast.span;
+          Ast.code = Some Error_code.E2001_type_error;
+          span;
           message =
             Printf.sprintf
               "Occurs check failed: type variable '%s' occurs within '%s', resulting in \
@@ -38,7 +39,8 @@ let rec unify ~span (t1 : Types.t) (t2 : Types.t) : (Types.subst, Ast.error) res
   | expected, actual ->
       Error
         {
-          Ast.span;
+          Ast.code = Some Error_code.E2001_type_error;
+          span;
           message =
             Printf.sprintf "Type mismatch: expected '%s', but got '%s'"
               (Types.to_string expected) (Types.to_string actual);

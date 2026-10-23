@@ -60,7 +60,12 @@ let make_path ~span segments = { span; segments }
 let parse_path ~span str =
   let trimmed = String.trim str in
   if String.length trimmed = 0 then
-    Error { Ast.span; message = "Cannot parse empty path identifier" }
+    Error
+      {
+        Ast.code = Some Error_code.E1008_syntax_error;
+        span;
+        message = "Cannot parse empty path identifier";
+      }
   else
     let parts = String.split_on_char '.' trimmed in
     let rec build_segments col_offset = function
@@ -68,7 +73,8 @@ let parse_path ~span str =
       | "" :: _ ->
           Error
             {
-              Ast.span;
+              Ast.code = Some Error_code.E1008_syntax_error;
+              span;
               message = Printf.sprintf "Invalid empty segment in path '%s'" trimmed;
             }
       | seg :: rest -> (
@@ -93,7 +99,12 @@ let parse_path ~span str =
 
 let path_of_strings ~span string_list =
   if string_list = [] then
-    Error { Ast.span; message = "Cannot create empty path from empty list" }
+    Error
+      {
+        Ast.code = Some Error_code.E1008_syntax_error;
+        span;
+        message = "Cannot create empty path from empty list";
+      }
   else
     let str = String.concat "." string_list in
     parse_path ~span str
@@ -139,17 +150,35 @@ let path_to_string (path : path) =
 
 let head_segment (path : path) =
   match path.segments with
-  | [] -> Error { Ast.span = path.span; message = "Empty path has no head segment" }
+  | [] ->
+      Error
+        {
+          Ast.code = Some Error_code.E1008_syntax_error;
+          span = path.span;
+          message = "Empty path has no head segment";
+        }
   | s :: _ -> Ok s
 
 let last_segment (path : path) =
   match List.rev path.segments with
-  | [] -> Error { Ast.span = path.span; message = "Empty path has no last segment" }
+  | [] ->
+      Error
+        {
+          Ast.code = Some Error_code.E1008_syntax_error;
+          span = path.span;
+          message = "Empty path has no last segment";
+        }
   | s :: _ -> Ok s
 
 let drop_last (path : path) =
   match List.rev path.segments with
-  | [] -> Error { Ast.span = path.span; message = "Cannot drop from empty path" }
+  | [] ->
+      Error
+        {
+          Ast.code = Some Error_code.E1008_syntax_error;
+          span = path.span;
+          message = "Cannot drop from empty path";
+        }
   | last :: rev_prefix ->
       let prefix_segs = List.rev rev_prefix in
       let prefix_span =
@@ -183,9 +212,19 @@ let append_segment (path : path) (segment : path_segment) =
 
 let validate_path (path : path) =
   if not (Ast.span_is_valid path.span) then
-    Error { Ast.span = path.span; message = "Path contains invalid span coordinates" }
+    Error
+      {
+        Ast.code = Some Error_code.E1007_invalid_span;
+        span = path.span;
+        message = "Path contains invalid span coordinates";
+      }
   else if path.segments = [] then
-    Error { Ast.span = path.span; message = "Path cannot have zero segments" }
+    Error
+      {
+        Ast.code = Some Error_code.E1008_syntax_error;
+        span = path.span;
+        message = "Path cannot have zero segments";
+      }
   else
     let rec check_segs = function
       | [] -> Ok ()
@@ -193,11 +232,17 @@ let validate_path (path : path) =
           if not (Ast.span_is_valid seg.span) then
             Error
               {
-                Ast.span = seg.span;
+                Ast.code = Some Error_code.E1007_invalid_span;
+                span = seg.span;
                 message = Printf.sprintf "Path segment '%s' has invalid span" seg.name;
               }
           else if String.length seg.name = 0 then
-            Error { Ast.span = seg.span; message = "Path segment name cannot be empty" }
+            Error
+              {
+                Ast.code = Some Error_code.E1008_syntax_error;
+                span = seg.span;
+                message = "Path segment name cannot be empty";
+              }
           else check_segs rest
     in
     check_segs path.segments
@@ -205,31 +250,71 @@ let validate_path (path : path) =
 let rec validate_sig_item = function
   | SigVal spec ->
       if not (Ast.span_is_valid spec.span) then
-        Error { Ast.span = spec.span; message = "Invalid span on val signature" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span = spec.span;
+            message = "Invalid span on val signature";
+          }
       else if String.length spec.name = 0 then
-        Error { Ast.span = spec.span; message = "Val signature cannot have empty name" }
+        Error
+          {
+            Ast.code = Some Error_code.E1008_syntax_error;
+            span = spec.span;
+            message = "Val signature cannot have empty name";
+          }
       else Ok ()
   | SigType spec ->
       if not (Ast.span_is_valid spec.span) then
-        Error { Ast.span = spec.span; message = "Invalid span on type signature" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span = spec.span;
+            message = "Invalid span on type signature";
+          }
       else if String.length spec.name = 0 then
-        Error { Ast.span = spec.span; message = "Type signature cannot have empty name" }
+        Error
+          {
+            Ast.code = Some Error_code.E1008_syntax_error;
+            span = spec.span;
+            message = "Type signature cannot have empty name";
+          }
       else Ok ()
   | SigModule { name; signature; span } ->
       if not (Ast.span_is_valid span) then
-        Error { Ast.span; message = "Invalid span on module signature" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span;
+            message = "Invalid span on module signature";
+          }
       else if String.length name = 0 then
-        Error { Ast.span; message = "Module signature cannot have empty name" }
+        Error
+          {
+            Ast.code = Some Error_code.E1008_syntax_error;
+            span;
+            message = "Module signature cannot have empty name";
+          }
       else validate_sig signature
   | SigOpen { path; span } ->
       if not (Ast.span_is_valid span) then
-        Error { Ast.span; message = "Invalid span on sig open" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span;
+            message = "Invalid span on sig open";
+          }
       else validate_path path
 
 and validate_sig = function
   | SigBody { items; span } ->
       if not (Ast.span_is_valid span) then
-        Error { Ast.span; message = "Invalid span on signature body" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span;
+            message = "Invalid span on signature body";
+          }
       else
         let rec check_items = function
           | [] -> Ok ()
@@ -241,45 +326,100 @@ and validate_sig = function
         check_items items
   | SigIdent { path; span } ->
       if not (Ast.span_is_valid span) then
-        Error { Ast.span; message = "Invalid span on signature identifier" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span;
+            message = "Invalid span on signature identifier";
+          }
       else validate_path path
 
 let rec validate_mod_item = function
   | ModVal def ->
       if not (Ast.span_is_valid def.span) then
-        Error { Ast.span = def.span; message = "Invalid span on val definition" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span = def.span;
+            message = "Invalid span on val definition";
+          }
       else if String.length def.name = 0 then
-        Error { Ast.span = def.span; message = "Val definition cannot have empty name" }
+        Error
+          {
+            Ast.code = Some Error_code.E1008_syntax_error;
+            span = def.span;
+            message = "Val definition cannot have empty name";
+          }
       else Ast.validate_expr def.value
   | ModType def ->
       if not (Ast.span_is_valid def.span) then
-        Error { Ast.span = def.span; message = "Invalid span on type definition" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span = def.span;
+            message = "Invalid span on type definition";
+          }
       else if String.length def.name = 0 then
-        Error { Ast.span = def.span; message = "Type definition cannot have empty name" }
+        Error
+          {
+            Ast.code = Some Error_code.E1008_syntax_error;
+            span = def.span;
+            message = "Type definition cannot have empty name";
+          }
       else Ok ()
   | ModModule { name; expr; span } ->
       if not (Ast.span_is_valid span) then
-        Error { Ast.span; message = "Invalid span on module item" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span;
+            message = "Invalid span on module item";
+          }
       else if String.length name = 0 then
-        Error { Ast.span; message = "Module item cannot have empty name" }
+        Error
+          {
+            Ast.code = Some Error_code.E1008_syntax_error;
+            span;
+            message = "Module item cannot have empty name";
+          }
       else validate_mod_expr expr
   | ModOpen { path; span } ->
       if not (Ast.span_is_valid span) then
-        Error { Ast.span; message = "Invalid span on open item" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span;
+            message = "Invalid span on open item";
+          }
       else validate_path path
   | ModImport { path; alias; span } -> (
       if not (Ast.span_is_valid span) then
-        Error { Ast.span; message = "Invalid span on import item" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span;
+            message = "Invalid span on import item";
+          }
       else
         match alias with
         | Some a when String.length a = 0 ->
-            Error { Ast.span; message = "Import alias cannot be empty" }
+            Error
+              {
+                Ast.code = Some Error_code.E1008_syntax_error;
+                span;
+                message = "Import alias cannot be empty";
+              }
         | _ -> validate_path path)
 
 and validate_mod_expr = function
   | ModStruct { items; span } ->
       if not (Ast.span_is_valid span) then
-        Error { Ast.span; message = "Invalid span on module structure" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span;
+            message = "Invalid span on module structure";
+          }
       else
         let rec check_items = function
           | [] -> Ok ()
@@ -291,11 +431,21 @@ and validate_mod_expr = function
         check_items items
   | ModVar { path; span } ->
       if not (Ast.span_is_valid span) then
-        Error { Ast.span; message = "Invalid span on module variable" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span;
+            message = "Invalid span on module variable";
+          }
       else validate_path path
   | ModAscribed { expr; signature; span } -> (
       if not (Ast.span_is_valid span) then
-        Error { Ast.span; message = "Invalid span on ascribed module" }
+        Error
+          {
+            Ast.code = Some Error_code.E1007_invalid_span;
+            span;
+            message = "Invalid span on ascribed module";
+          }
       else
         match validate_mod_expr expr with
         | Ok () -> validate_sig signature
@@ -303,9 +453,19 @@ and validate_mod_expr = function
 
 let validate_unit unit =
   if not (Ast.span_is_valid unit.span) then
-    Error { Ast.span = unit.span; message = "Invalid span on compilation unit" }
+    Error
+      {
+        Ast.code = Some Error_code.E1007_invalid_span;
+        span = unit.span;
+        message = "Invalid span on compilation unit";
+      }
   else if String.length unit.name = 0 then
-    Error { Ast.span = unit.span; message = "Compilation unit cannot have empty name" }
+    Error
+      {
+        Ast.code = Some Error_code.E1008_syntax_error;
+        span = unit.span;
+        message = "Compilation unit cannot have empty name";
+      }
   else
     match unit.kind with
     | Implementation expr -> validate_mod_expr expr
@@ -567,12 +727,23 @@ let parse_type_str ~(span : Ast.span) (str : string) : (Types.t, Ast.error) resu
     | Ok (ty, rest) -> Ok (ty, rest)
     | Error e -> Error e
   and parse_primary = function
-    | [] -> Error { Ast.span; message = "Unexpected end of type expression" }
+    | [] ->
+        Error
+          {
+            Ast.code = Some Error_code.E1008_syntax_error;
+            span;
+            message = "Unexpected end of type expression";
+          }
     | "(" :: rest -> (
         match parse_arrow rest with
         | Ok (ty, ")" :: rem) -> Ok (ty, rem)
         | Ok (_, _) ->
-            Error { Ast.span; message = "Unclosed parenthesis in type expression" }
+            Error
+              {
+                Ast.code = Some Error_code.E1008_syntax_error;
+                span;
+                message = "Unclosed parenthesis in type expression";
+              }
         | Error e -> Error e)
     | "int" :: rest -> Ok (Types.TyInt, rest)
     | "bool" :: rest -> Ok (Types.TyBool, rest)
@@ -589,7 +760,8 @@ let parse_type_str ~(span : Ast.span) (str : string) : (Types.t, Ast.error) resu
   | Ok (_, extra :: _) ->
       Error
         {
-          Ast.span;
+          Ast.code = Some Error_code.E1008_syntax_error;
+          span;
           message = Printf.sprintf "Unexpected trailing token in type: '%s'" extra;
         }
   | Error err -> Error err
@@ -658,7 +830,8 @@ let parse_interface ~file (content : string) : (mod_sig, Ast.error) result =
           | _ ->
               Error
                 {
-                  Ast.span;
+                  Ast.code = Some Error_code.E1008_syntax_error;
+                  span;
                   message =
                     Printf.sprintf "Syntax error in interface declaration: '%s'" trimmed;
                 })
@@ -736,8 +909,7 @@ let parse_implementation ~file (content : string) : (mod_expr, Ast.error) result
     | Ok prog ->
         let code_items = of_ast_decls prog.decls in
         Ok (ModStruct { items = header_items @ code_items; span })
-    | Error diag ->
-        Error { Ast.span = diag.Diagnostic.span; message = diag.Diagnostic.message }
+    | Error diag -> Error (Diagnostic.to_ast_error diag)
 
 let parse_compilation_unit ~file (content : string) : (compilation_unit, Ast.error) result
     =

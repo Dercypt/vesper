@@ -18,28 +18,14 @@ let severity_to_string = function
   | Warning -> "warning"
   | Note -> "note"
 
-let to_ast_error (diag : t) : Ast.error = { span = diag.span; message = diag.message }
+let to_ast_error (diag : t) : Ast.error =
+  { code = Some diag.code; span = diag.span; message = diag.message }
 
 let of_ast_error ?code ?hint (err : Ast.error) : t =
   let code =
     match code with
     | Some c -> c
-    | None ->
-        let msg = err.message in
-        let msg_len = String.length msg in
-        if msg_len >= 7 && String.sub msg 0 (min 7 msg_len) = "Invalid" then
-          if msg_len >= 12 && String.sub msg 0 (min 12 msg_len) = "Invalid sour" then
-            Error_code.E1007_invalid_span
-          else Error_code.E1004_invalid_escape
-        else if msg_len >= 12 && String.sub msg 0 (min 12 msg_len) = "Unterminated" then
-          Error_code.E1002_unterminated_string
-        else if msg_len >= 8 && String.sub msg 0 (min 8 msg_len) = "Unclosed" then
-          Error_code.E1003_unclosed_comment
-        else if msg_len >= 10 && String.sub msg 0 (min 10 msg_len) = "Unexpected" then
-          Error_code.E1005_unexpected_char
-        else if msg_len >= 7 && String.sub msg 0 (min 7 msg_len) = "Integer" then
-          Error_code.E1006_integer_overflow
-        else Error_code.E1008_syntax_error
+    | None -> ( match err.code with Some c -> c | None -> Error_code.E1008_syntax_error)
   in
   let hint =
     match hint with
