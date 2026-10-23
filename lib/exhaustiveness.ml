@@ -327,13 +327,13 @@ let find_witness ~sig_env ~span ~matrix ?expected_type () =
   | Some (w :: _) -> Some w
   | _ -> None
 
-let check_patterns ~sig_env ~span ?expected_type (patterns : Pattern.pattern list) :
+let check_clauses ~sig_env ~span ?expected_type (clauses : Pattern.clause list) :
     check_result =
-  let rec check_redundancy idx (cur_matrix : matrix) pats =
-    match pats with
+  let rec check_redundancy idx (cur_matrix : matrix) cls =
+    match cls with
     | [] -> ([], cur_matrix)
-    | p :: rest ->
-        let expanded = expand_row [ p ] in
+    | (c : Pattern.clause) :: rest ->
+        let expanded = expand_row [ c.pattern ] in
         let is_any_useful =
           List.exists (fun row -> useful sig_env cur_matrix row expected_type) expanded
         in
@@ -343,13 +343,15 @@ let check_patterns ~sig_env ~span ?expected_type (patterns : Pattern.pattern lis
           in
           (idx :: redundant_indices, final_matrix)
         else
-          let new_matrix = cur_matrix @ expanded in
+          let new_matrix =
+            match c.guard with Some _ -> cur_matrix | None -> cur_matrix @ expanded
+          in
           let redundant_indices, final_matrix =
             check_redundancy (idx + 1) new_matrix rest
           in
           (redundant_indices, final_matrix)
   in
-  let redundant_indices, full_matrix = check_redundancy 0 [] patterns in
+  let redundant_indices, full_matrix = check_redundancy 0 [] clauses in
   let missing_witness =
     find_witness ~sig_env ~span ~matrix:full_matrix ?expected_type ()
   in
@@ -357,8 +359,8 @@ let check_patterns ~sig_env ~span ?expected_type (patterns : Pattern.pattern lis
   let redundant_diagnostics =
     List.map
       (fun i ->
-        let p = List.nth patterns i in
-        Diagnostic.warning ~code:Error_code.E3002_redundant_pattern ~span:p.span
+        let c = List.nth clauses i in
+        Diagnostic.warning ~code:Error_code.E3002_redundant_pattern ~span:c.pattern.span
           ~hint:
             "Consider removing this unreachable branch or reordering earlier patterns."
           "This pattern clause is redundant and will never be matched.")
@@ -386,7 +388,12 @@ let check_patterns ~sig_env ~span ?expected_type (patterns : Pattern.pattern lis
     diagnostics = redundant_diagnostics @ exhaustiveness_diagnostics;
   }
 
-let check_clauses ~sig_env ~span ?expected_type (clauses : Pattern.clause list) :
+let check_patterns ~sig_env ~span ?expected_type (patterns : Pattern.pattern list) :
     check_result =
-  let patterns = List.map (fun (c : Pattern.clause) -> c.pattern) clauses in
-  check_patterns ~sig_env ~span ?expected_type patterns
+  let dummy_body = Core_ir.make_expr ~span (Core_ir.Lit (Ast.Int 0)) in
+  let clauses =
+    List.map
+      (fun (p : Pattern.pattern) -> Pattern.make_clause ~span:p.span p dummy_body)
+      patterns
+  in
+  check_clauses ~sig_env ~span ?expected_type clauses

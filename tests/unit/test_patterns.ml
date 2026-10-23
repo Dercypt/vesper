@@ -250,6 +250,48 @@ let test_maranget_redundancy () =
   let res4 = Exhaustiveness.check_patterns ~sig_env ~span:test_span non_redundant_or in
   Alcotest.(check (list int)) "No redundancy" [] res4.redundant_indices
 
+let test_guarded_clauses_exhaustiveness_and_redundancy () =
+  let sig_env = standard_sig_env in
+  let span = test_span in
+  let dummy_body = Core_ir.make_expr ~span (Core_ir.Lit (Ast.Int 1)) in
+  let guard_false = Core_ir.make_expr ~span (Core_ir.Lit (Ast.Bool false)) in
+
+  (* Case 1: Guarded wildcard without fallback is non-exhaustive *)
+  let single_guarded =
+    [ make_clause ~span ~guard:guard_false (var ~span "x") dummy_body ]
+  in
+  let res1 = Exhaustiveness.check_clauses ~sig_env ~span single_guarded in
+  Alcotest.(check bool)
+    "Guarded match without fallback is non-exhaustive" false res1.is_exhaustive;
+  Alcotest.(check bool)
+    "Missing witness synthesized" true
+    (Option.is_some res1.missing_witness);
+  Alcotest.(check (list int))
+    "Guarded clause itself is not redundant" [] res1.redundant_indices;
+
+  (* Case 2: Guarded wildcard followed by fallback is exhaustive and fallback is NOT redundant *)
+  let guarded_with_fallback =
+    [
+      make_clause ~span ~guard:guard_false (var ~span "x") dummy_body;
+      make_clause ~span (wildcard ~span) dummy_body;
+    ]
+  in
+  let res2 = Exhaustiveness.check_clauses ~sig_env ~span guarded_with_fallback in
+  Alcotest.(check bool) "Guarded with fallback is exhaustive" true res2.is_exhaustive;
+  Alcotest.(check (list int)) "Fallback is not redundant" [] res2.redundant_indices;
+
+  (* Case 3: Unguarded fallback followed by guarded clause flags the guarded clause as redundant *)
+  let fallback_before_guarded =
+    [
+      make_clause ~span (wildcard ~span) dummy_body;
+      make_clause ~span ~guard:guard_false (var ~span "x") dummy_body;
+    ]
+  in
+  let res3 = Exhaustiveness.check_clauses ~sig_env ~span fallback_before_guarded in
+  Alcotest.(check bool) "Exhaustive" true res3.is_exhaustive;
+  Alcotest.(check (list int))
+    "Subsequent guarded clause is redundant" [ 1 ] res3.redundant_indices
+
 let test_decision_tree_compilation () =
   let sig_env = standard_sig_env in
   let target = Core_ir.make_expr ~span:test_span (Core_ir.Var "input") in
@@ -494,6 +536,8 @@ let () =
         [
           test_case "Dead-code diagnostics and redundant clauses" `Quick
             test_maranget_redundancy;
+          test_case "Guarded clauses exhaustiveness and non-covering redundancy" `Quick
+            test_guarded_clauses_exhaustiveness_and_redundancy;
         ] );
       ( "Decision Tree Compilation",
         [
