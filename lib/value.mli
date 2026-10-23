@@ -1,11 +1,22 @@
 (** Runtime values for the Vesper tree-walking interpreter. Represents pure, immutable
     evaluation results fulfilling Law 5 (Deterministic Evaluation & Sound Termination). *)
 
-type t =
+type chunk = {
+  code : Opcode.t array;
+  constants : t array;
+  spans : Ast.span array;
+  children : chunk array;
+  param : string option;
+  body : Core_ir.expr option;
+  captures : (string * int) array;
+}
+
+and t =
   | VInt of int
   | VBool of bool
   | VString of string
   | VClosure of { param : string; body : Core_ir.expr; env : env }
+  | VBytecodeClosure of { chunk : chunk; env : env }
   | VUnit
   | VConstruct of string * t list
   | VRecord of (string * t) list
@@ -43,6 +54,9 @@ val record_field : string -> t -> t option
 val closure : param:string -> body:Core_ir.expr -> env:env -> t
 (** Constructs a closure value capturing its lexical environment. *)
 
+val bytecode_closure : chunk:chunk -> env:env -> t
+(** Constructs a bytecode closure value capturing its lexical environment. *)
+
 val type_of : t -> string
 (** Returns human-readable runtime type name of a value (e.g. "int", "bool", "function").
 *)
@@ -56,3 +70,6 @@ val pp : Format.formatter -> t -> unit
 val equal : t -> t -> bool
 (** Compares two runtime values for equality. Primitives and units compare by structural
     value; closures compare by physical equality. *)
+
+val equal_chunk : chunk -> chunk -> bool
+(** Compares two bytecode chunks for structural equivalence. *)

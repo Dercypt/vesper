@@ -5,18 +5,11 @@
 val default_fuel : int
 (** Standard execution fuel budget allocated for VM dispatch steps (1,000,000). *)
 
-type value =
-  | VInt of int
-  | VBool of bool
-  | VString of string
-  | VUnit
-  | VClosure of { chunk : Bytecode.chunk; env : env }
-  | VConstruct of string * value list
-  | VRecord of (string * value) list
+type value = Value.t
+(** VM runtime values, operating natively on Value.t. *)
 
-and env = (string * value) list
-(** VM runtime values and lexical environments, separated from tree evaluator values.
-    Bytecode closures carry pre-compiled chunks rather than uncompiled AST expressions. *)
+type env = Env.t
+(** VM lexical environments, operating natively on Env.t. *)
 
 type call_frame = { chunk : Bytecode.chunk; ip : int; base_sp : int; env : env }
 (** Activation record for a function call on the VM call stack. *)
@@ -34,7 +27,7 @@ type vm_outcome = { value : Value.t; env : Env.t; steps : int }
 (** Complete VM evaluation outcome containing returned value, accumulated environment, and
     reduction step count. *)
 
-type vm_raw_outcome = { value : value; env : env; steps : int }
+type vm_raw_outcome = vm_outcome = { value : value; env : env; steps : int }
 (** Low-level VM evaluation outcome retaining native VM values and environments. *)
 
 val value_to_eval_value : value -> Value.t

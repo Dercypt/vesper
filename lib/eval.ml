@@ -112,6 +112,14 @@ let rec eval_step (env : Env.t) (fuel : int) (steps : int) (e : Core_ir.expr) :
                       env
                   in
                   eval_step body_env fuel' steps' body
+              | Value.VBytecodeClosure { chunk; env = c_env } ->
+                  let rec rec_env =
+                    (name, Value.VBytecodeClosure { chunk; env = rec_env }) :: c_env
+                  in
+                  let body_env =
+                    Env.extend name (Value.VBytecodeClosure { chunk; env = rec_env }) env
+                  in
+                  eval_step body_env fuel' steps' body
               | non_closure ->
                   let body_env = Env.extend name non_closure env in
                   eval_step body_env fuel' steps' body)
@@ -127,6 +135,10 @@ let rec eval_step (env : Env.t) (fuel : int) (steps : int) (e : Core_ir.expr) :
         else
           match fn_val with
           | Value.VClosure { param; body; env = c_env } ->
+              let call_env = Env.extend param arg_val c_env in
+              eval_step call_env (fuel_arg - 1) (steps_arg + 1) body
+          | Value.VBytecodeClosure
+              { chunk = { param = Some param; body = Some body; _ }; env = c_env } ->
               let call_env = Env.extend param arg_val c_env in
               eval_step call_env (fuel_arg - 1) (steps_arg + 1) body
           | other ->
@@ -173,6 +185,12 @@ let eval_decl ?(fuel = default_fuel) (env : Env.t) (d : Core_ir.decl) :
                     let rec_env = Env.extend_rec name param body c_env in
                     let closure_val = Value.closure ~param ~body ~env:rec_env in
                     Ok (closure_val, Env.extend name closure_val env)
+                | Value.VBytecodeClosure { chunk; env = c_env } ->
+                    let rec rec_env =
+                      (name, Value.VBytecodeClosure { chunk; env = rec_env }) :: c_env
+                    in
+                    let closure_val = Value.bytecode_closure ~chunk ~env:rec_env in
+                    Ok (closure_val, Env.extend name closure_val env)
                 | non_closure -> Ok (non_closure, Env.extend name non_closure env))
           else
             let* v, _, _ = eval_step env fuel 0 value in
@@ -207,6 +225,14 @@ let eval_program_with_stats ?(fuel = default_fuel) ?(env = Env.empty)
                       | Value.VClosure { param; body; env = c_env } ->
                           let rec_env = Env.extend_rec name param body c_env in
                           let closure_val = Value.closure ~param ~body ~env:rec_env in
+                          let new_env = Env.extend name closure_val cur_env in
+                          loop new_env fuel' steps' closure_val rest
+                      | Value.VBytecodeClosure { chunk; env = c_env } ->
+                          let rec rec_env =
+                            (name, Value.VBytecodeClosure { chunk; env = rec_env })
+                            :: c_env
+                          in
+                          let closure_val = Value.bytecode_closure ~chunk ~env:rec_env in
                           let new_env = Env.extend name closure_val cur_env in
                           loop new_env fuel' steps' closure_val rest
                       | non_closure ->

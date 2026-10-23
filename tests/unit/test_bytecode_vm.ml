@@ -197,11 +197,11 @@ let test_static_closures () =
       | Error err -> Alcotest.fail err.message
       | Ok chunk -> (
           match VM.run_vm chunk with
-          | Ok (VM.VClosure { chunk = fn_chunk; _ }) ->
+          | Ok (Value.VBytecodeClosure { chunk = fn_chunk; _ }) ->
               Alcotest.(check bool)
                 "compiled closure has instructions" true
                 (Bytecode.length fn_chunk > 0)
-          | _ -> Alcotest.fail "Expected VM.VClosure from run_vm"))
+          | _ -> Alcotest.fail "Expected Value.VBytecodeClosure from run_vm"))
 
 let test_compile_fun_error_propagation () =
   let valid_span =
@@ -229,6 +229,18 @@ let test_compile_fun_error_propagation () =
         err.message
   | Ok _ -> Alcotest.fail "Expected compile_expr to fail on invalid lambda body"
 
+let test_bytecode_closure_operations () =
+  let chunk =
+    Bytecode.create
+      ~code:[| Opcode.Op_GetLocal 0; Opcode.Op_Return |]
+      ~constants:[||] ~spans:[| dummy_span; dummy_span |] ~param:"x" ()
+  in
+  let clos = Value.bytecode_closure ~chunk ~env:[] in
+  Alcotest.(check string) "type_of closure" "function" (Value.type_of clos);
+  Alcotest.(check string) "to_string closure" "<fun x>" (Value.to_string clos);
+  let clos2 = Value.bytecode_closure ~chunk ~env:[] in
+  Alcotest.(check bool) "equal closure self" true (Value.equal clos clos2)
+
 let () =
   let open Alcotest in
   run "Vesper Bytecode VM Unit Tests"
@@ -246,6 +258,7 @@ let () =
         [
           test_case "Static closures and pre-compiled functions" `Quick
             test_static_closures;
+          test_case "Bytecode closure operations" `Quick test_bytecode_closure_operations;
         ] );
       ( "Compiler Error Propagation",
         [

@@ -111,8 +111,8 @@ let cmd_check file =
           Printf.printf "%s: ok (%d declaration(s))\n" file (List.length prog.decls);
           0)
 
-let compile_with_prelude ~source prog =
-  match Compiler.compile (Prelude.with_prelude prog) with
+let compile_program ~source prog =
+  match Compiler.compile prog with
   | Ok chunk -> Ok chunk
   | Error e ->
       report ~source (Diagnostic.of_ast_error e);
@@ -127,10 +127,10 @@ let cmd_run file =
       | Ok () -> (
           if prog.decls = [] then 0
           else
-            match compile_with_prelude ~source prog with
+            match compile_program ~source prog with
             | Error c -> c
             | Ok chunk -> (
-                match Vm.run chunk with
+                match Vm.run ~env:(Prelude.default_vm_env ()) chunk with
                 | Ok Value.VUnit -> 0
                 | Ok (Value.VString s) ->
                     print_endline s;
@@ -213,10 +213,10 @@ let cmd_eval source =
       | Ok () -> (
           if prog.decls = [] then 0
           else
-            match compile_with_prelude ~source prog with
+            match compile_program ~source prog with
             | Error c -> c
             | Ok chunk -> (
-                match Vm.run chunk with
+                match Vm.run ~env:(Prelude.default_vm_env ()) chunk with
                 | Ok Value.VUnit -> 0
                 | Ok (Value.VString s) ->
                     print_endline s;
