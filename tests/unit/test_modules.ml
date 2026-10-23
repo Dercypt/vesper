@@ -104,7 +104,15 @@ let test_import_scanner () =
   Alcotest.(check (list string))
     "Extracted imports"
     [ "Math"; "Prelude"; "Data"; "Collections" ]
-    mod_names
+    mod_names;
+
+  (* Edge cases: empty module name after import / open (Law 1 isolation) *)
+  let edge_code = "import ;\nopen ;\nfrom ; import ;\nimport ;;; \n" in
+  let edge_imports =
+    Result.get_ok (Dep_graph.scan_imports_from_string ~file:"edge.vesper" edge_code)
+  in
+  Alcotest.(check int)
+    "Empty module imports ignored without crash" 0 (List.length edge_imports)
 
 let test_dep_graph_and_cycles () =
   let g0 = Dep_graph.empty in

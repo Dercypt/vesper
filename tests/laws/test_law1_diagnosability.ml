@@ -346,6 +346,31 @@ let test_overloaded_operator_diagnostics () =
                 (String.length diag.message > 0)))
     samples
 
+let test_import_scanner_isolation () =
+  let malformed_imports =
+    [
+      "import ;";
+      "open ;";
+      "from ; import ;";
+      "import  ;";
+      "open   ;";
+      "import ;;";
+      "from   ; import foo";
+    ]
+  in
+  List.iter
+    (fun s ->
+      match Dep_graph.scan_imports_from_string ~file:"malformed.vesper" s with
+      | Ok _ -> ()
+      | Error diag ->
+          Alcotest.(check bool)
+            "Diagnostic span is valid on malformed import" true
+            (Ast.span_is_valid diag.span);
+          Alcotest.(check bool)
+            "Diagnostic message is non-empty" true
+            (String.length diag.message > 0))
+    malformed_imports
+
 let test_10000_adversarial_fuzzing () =
   Random.init 42;
   let sample_count = 10_000 in
@@ -381,6 +406,8 @@ let tests =
       test_non_function_let_rec;
     test_case "Overloaded operator type violations isolate host under Law 1" `Quick
       test_overloaded_operator_diagnostics;
+    test_case "Import scanner isolates host exceptions on malformed module names" `Quick
+      test_import_scanner_isolation;
     test_case "10,000 adversarial fuzzing inputs isolate host completely" `Quick
       test_10000_adversarial_fuzzing;
   ]

@@ -132,9 +132,11 @@ let scan_imports_from_string ~file (content : string) :
           in
           let create_import_info mod_name =
             let start_col =
-              match String.index_opt raw_line mod_name.[0] with
-              | Some idx -> idx + 1
-              | None -> 1
+              if String.length mod_name = 0 then 1
+              else
+                match String.index_opt raw_line mod_name.[0] with
+                | Some idx -> idx + 1
+                | None -> 1
             in
             let end_col = start_col + String.length mod_name in
             let span =
@@ -150,12 +152,16 @@ let scan_imports_from_string ~file (content : string) :
           match tokens with
           | ("import" | "open") :: mod_str :: _ ->
               let mod_name = extract_module_name mod_str in
-              let info = create_import_info mod_name in
-              scan (line_num + 1) false (info :: acc) rest
+              if String.length mod_name = 0 then scan (line_num + 1) false acc rest
+              else
+                let info = create_import_info mod_name in
+                scan (line_num + 1) false (info :: acc) rest
           | "from" :: mod_str :: "import" :: _ ->
               let mod_name = extract_module_name mod_str in
-              let info = create_import_info mod_name in
-              scan (line_num + 1) false (info :: acc) rest
+              if String.length mod_name = 0 then scan (line_num + 1) false acc rest
+              else
+                let info = create_import_info mod_name in
+                scan (line_num + 1) false (info :: acc) rest
           | _ -> scan (line_num + 1) false acc rest)
   in
   scan 1 false [] lines
