@@ -32,8 +32,8 @@ val to_ast_error : t -> Ast.error
 (** Downcasts a diagnostic to a simple [Ast.error] carrying span and message. *)
 
 val of_ast_error : ?code:Error_code.t -> ?hint:string -> Ast.error -> t
-(** Upcasts an [Ast.error] to a structured diagnostic, inferring error codes where
-    applicable. *)
+(** Upcasts an [Ast.error] to a structured diagnostic, taking the code attached to the
+    error or defaulting to syntax error. *)
 
 val extract_line : source:string -> line:int -> string option
 (** Extracts a 1-indexed line from source text. Safe against out-of-bounds line
