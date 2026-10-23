@@ -285,6 +285,36 @@ let test_structured_error_codes () =
         (Error_code.equal diag.code Error_code.E1004_invalid_escape);
       Alcotest.(check (option string)) "Escape hint is absent" None diag.hint
 
+let test_non_function_let_rec () =
+  let check_type_failure src =
+    match Parse_facade.parse_string ~file:"let_rec_soundness.vesper" src with
+    | Error diag ->
+        Alcotest.fail
+          (Printf.sprintf "Unexpected syntax error on %S: %s" src diag.message)
+    | Ok prog -> (
+        match Typecheck.typecheck_program prog with
+        | Ok _ ->
+            Alcotest.fail
+              (Printf.sprintf "Expected typecheck failure for non-function let rec: %S"
+                 src)
+        | Error diags ->
+            Alcotest.(check bool) "Non-empty diagnostics" true (List.length diags > 0);
+            let diag = List.hd diags in
+            Alcotest.(check bool)
+              "Error code is E2001_type_error" true
+              (Error_code.equal diag.code Error_code.E2001_type_error);
+            Alcotest.(check bool)
+              "Diagnostic message specifies function requirement" true
+              (String.equal diag.message "Recursive bindings must bind a function");
+            Alcotest.(check bool)
+              "Span is valid and non-degenerate" true (Ast.span_is_valid diag.span))
+  in
+  check_type_failure "let rec x = x; x + 1;";
+  check_type_failure "let x = \"hello\"; let rec x = x + 1; x;";
+  check_type_failure "let rec x = 42; x;";
+  check_type_failure "let rec x = 1 in x;";
+  check_type_failure "let rec x = x in x + 1;"
+
 let test_10000_adversarial_fuzzing () =
   Random.init 42;
   let sample_count = 10_000 in
@@ -316,6 +346,8 @@ let tests =
       test_diagnostic_rendering;
     test_case "Structured error codes are preserved without substring matching" `Quick
       test_structured_error_codes;
+    test_case "Non-function let rec bindings reject cleanly under Law 1" `Quick
+      test_non_function_let_rec;
     test_case "10,000 adversarial fuzzing inputs isolate host completely" `Quick
       test_10000_adversarial_fuzzing;
   ]
