@@ -26,9 +26,9 @@ flowchart LR
 5. **Typechecker** (`lib/types.ml`, `lib/typecheck.ml`, `lib/unify.ml`):
    Bidirectional Hindley-Milner type inference (Algorithm W).
 6. **Pattern Matching (Standalone Experimental Library)** (`lib/pattern.ml`, `lib/exhaustiveness.ml`, `lib/pat_compile.ml`):
-   Maranget pattern matrix algorithm, exhaustiveness checks, and decision trees. Verified via unit tests; surface grammar rules are not yet hooked into `lib/parser.mly`.
+   Maranget pattern matrix algorithm, exhaustiveness checks, and decision trees. Guarded clauses (`when`-conditions) are treated as non-covering during exhaustiveness and redundancy analysis. Verified via unit tests; surface grammar rules are not yet hooked into `lib/parser.mly`.
 7. **Modules (Standalone Experimental Library)** (`lib/mod_ast.ml`, `lib/namespace.ml`, `lib/dep_graph.ml`, `lib/module_check.ml`):
-   Namespaces, interface checking, and topological cycle detection. Verified via unit tests with prototype line parsing; Menhir grammar integration is pending.
+   Namespaces, interface checking, fast line dependency scanning with total empty-module host isolation (Law 1), and topological cycle detection. Verified via unit tests with prototype line parsing; Menhir grammar integration is pending.
 8. **Bytecode VM** (`lib/opcode.ml`, `lib/bytecode.ml`, `lib/compiler.ml`, `lib/vm.ml`):
    Stack machine with compact bytecode instructions and disassembler (`lib/disasm.ml`).
 9. **Standard Library & Effects** (`lib/effect_runtime.ml`, `lib/stdlib/`):
