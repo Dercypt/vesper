@@ -58,13 +58,13 @@ Disassembly with span mappings:
 
   $ vesper disasm ok.vesper | head -8
   == ok.vesper ==
-  Constants (2):
-    [0] 40
-    [1] 2
-  Bytecode (12 instructions):
-  0000  Op_Const 0           ; 40  (ok.vesper:1:8-1:10)
-  0001  Op_Const 1           ; 2  (ok.vesper:1:13-1:14)
-  0002  Op_Add                (ok.vesper:1:8-1:14)
+  Constants (1):
+    [0] 42
+  Bytecode (10 instructions):
+  0000  Op_Const 0           ; 42  (ok.vesper:1:8-1:14)
+  0001  Op_DefGlobal x        (ok.vesper:1:0-1:14)
+  0002  Op_Pop                (ok.vesper:1:0-1:14)
+  0003  Op_Closure 0         ; (fun a, 4 instrs)  (ok.vesper:2:15-2:20)
   $ vesper disasm type_error.vesper
   error[E2001]: Type mismatch: expected 'int', but got 'bool'
     --> type_error.vesper:1:8-1:16

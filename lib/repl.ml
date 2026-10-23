@@ -18,6 +18,7 @@ let eval_input_exn st src =
           match Desugar.lower prog with
           | Error e -> Error [ Diagnostic.of_ast_error e ]
           | Ok core -> (
+              let core = Normalize.normalize core in
               if List.length core.decls <> List.length typed.decls then
                 Error [ internal_error "REPL declaration count mismatch" ]
               else
