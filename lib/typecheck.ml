@@ -28,7 +28,8 @@ let rec infer_internal (fresh : unit -> Types.t) (env : Type_env.t) (e : Ast.exp
   if not (Ast.span_is_valid e.span) then
     Error
       {
-        Ast.span = e.span;
+        Ast.code = Some Error_code.E1007_invalid_span;
+        span = e.span;
         message =
           Printf.sprintf "Expression violates Law 3 (invalid span): %s"
             (Ast.span_to_string e.span);
@@ -46,7 +47,8 @@ let rec infer_internal (fresh : unit -> Types.t) (env : Type_env.t) (e : Ast.exp
         | None ->
             Error
               {
-                Ast.span = e.span;
+                Ast.code = Some Error_code.E2001_type_error;
+                span = e.span;
                 message = Printf.sprintf "Unbound identifier '%s'" name;
               })
     | Ast.Unary { op = Neg; arg } ->
@@ -156,7 +158,8 @@ and infer_binop ~span (op : Ast.binop) (ty_lhs : Types.t) (ty_rhs : Types.t)
       | other ->
           Error
             {
-              Ast.span;
+              Ast.code = Some Error_code.E2001_type_error;
+              span;
               message =
                 Printf.sprintf
                   "Type error: operator '+' expects integers or strings, but got '%s'"
@@ -184,7 +187,8 @@ and infer_binop ~span (op : Ast.binop) (ty_lhs : Types.t) (ty_rhs : Types.t)
       | other ->
           Error
             {
-              Ast.span;
+              Ast.code = Some Error_code.E2001_type_error;
+              span;
               message =
                 Printf.sprintf
                   "Type error: comparison operator expects integers or strings, but got \
@@ -197,7 +201,8 @@ let rec check_internal (fresh : unit -> Types.t) (env : Type_env.t) (expr : Ast.
   if not (Ast.span_is_valid expr.span) then
     Error
       {
-        Ast.span = expr.span;
+        Ast.code = Some Error_code.E1007_invalid_span;
+        span = expr.span;
         message =
           Printf.sprintf "Expression violates Law 3 (invalid span): %s"
             (Ast.span_to_string expr.span);
@@ -249,7 +254,8 @@ let typecheck_decl ?(env = Type_env.empty) (decl : Ast.decl) :
   if not (Ast.span_is_valid decl.span) then
     Error
       {
-        Ast.span = decl.span;
+        Ast.code = Some Error_code.E1007_invalid_span;
+        span = decl.span;
         message =
           Printf.sprintf "Declaration violates Law 3 (invalid span): %s"
             (Ast.span_to_string decl.span);

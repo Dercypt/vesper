@@ -6,7 +6,10 @@ type span = {
   end_col : int;
 }
 
-type error = { span : span; message : string }
+type error = { code : Error_code.t option; span : span; message : string }
+
+let make_error ?code ~span message = { code; span; message }
+
 type literal = Int of int | Bool of bool | String of string
 type binop = Add | Sub | Mul | Div | Mod | Eq | Neq | Lt | Le | Gt | Ge | And | Or
 
@@ -65,6 +68,7 @@ let create_span ~file ~start_line ~start_col ~end_line ~end_col : (span, error) 
   else
     Error
       {
+        code = Some Error_code.E1007_invalid_span;
         span = dummy_span;
         message =
           Printf.sprintf "Invalid source coordinates for span: %s"
@@ -89,6 +93,7 @@ let rec validate_expr (e : expr) : (unit, error) result =
   if not (span_is_valid e.span) then
     Error
       {
+        code = Some Error_code.E1007_invalid_span;
         span = e.span;
         message =
           Printf.sprintf "AST node violates Law 3 (invalid span provenance): %s"
@@ -99,7 +104,12 @@ let rec validate_expr (e : expr) : (unit, error) result =
     | Lit (Int _) | Lit (Bool _) | Lit (String _) -> Ok ()
     | Var name ->
         if String.length name = 0 then
-          Error { span = e.span; message = "Variable identifier cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Variable identifier cannot be empty";
+            }
         else Ok ()
     | Unary { op = _; arg } -> validate_expr arg
     | Binary { op = _; lhs; rhs } ->
@@ -111,17 +121,37 @@ let rec validate_expr (e : expr) : (unit, error) result =
         validate_expr else_branch
     | Let { name; is_rec = _; args; value; body } ->
         if String.length name = 0 then
-          Error { span = e.span; message = "Let-binding identifier cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Let-binding identifier cannot be empty";
+            }
         else if List.exists (fun arg -> String.length arg = 0) args then
-          Error { span = e.span; message = "Let-binding argument cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Let-binding argument cannot be empty";
+            }
         else
           let* () = validate_expr value in
           validate_expr body
     | Fun { params; body } ->
         if List.length params = 0 then
-          Error { span = e.span; message = "Lambda must have at least one parameter" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Lambda must have at least one parameter";
+            }
         else if List.exists (fun param -> String.length param = 0) params then
-          Error { span = e.span; message = "Lambda parameter cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Lambda parameter cannot be empty";
+            }
         else validate_expr body
     | App { fn; arg } ->
         let* () = validate_expr fn in
@@ -133,6 +163,7 @@ let validate_decl (d : decl) : (unit, error) result =
   if not (span_is_valid d.span) then
     Error
       {
+        code = Some Error_code.E1007_invalid_span;
         span = d.span;
         message =
           Printf.sprintf "Declaration violates Law 3 (invalid span provenance): %s"
@@ -142,9 +173,19 @@ let validate_decl (d : decl) : (unit, error) result =
     match d.decl_desc with
     | LetDecl { name; is_rec = _; args; value } ->
         if String.length name = 0 then
-          Error { span = d.span; message = "Let declaration identifier cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = d.span;
+              message = "Let declaration identifier cannot be empty";
+            }
         else if List.exists (fun arg -> String.length arg = 0) args then
-          Error { span = d.span; message = "Let declaration argument cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = d.span;
+              message = "Let declaration argument cannot be empty";
+            }
         else validate_expr value
     | ExprDecl e -> validate_expr e
 
@@ -158,6 +199,7 @@ let validate_program (p : program) : (unit, error) result =
   if not (span_is_valid p.span) then
     Error
       {
+        code = Some Error_code.E1007_invalid_span;
         span = p.span;
         message =
           Printf.sprintf "Program violates Law 3 (invalid span provenance): %s"

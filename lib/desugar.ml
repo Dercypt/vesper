@@ -4,6 +4,7 @@ let rec lower_expr (e : Ast.expr) : (Core_ir.expr, Ast.error) result =
   if not (Ast.span_is_valid e.span) then
     Error
       {
+        code = Some Error_code.E1007_invalid_span;
         span = e.span;
         message =
           Printf.sprintf "AST expression violates Law 3 (invalid span): %s"
@@ -14,7 +15,12 @@ let rec lower_expr (e : Ast.expr) : (Core_ir.expr, Ast.error) result =
     | Lit lit -> Ok (Core_ir.make_expr ~span:e.span (Lit lit))
     | Var name ->
         if String.length name = 0 then
-          Error { span = e.span; message = "Variable identifier cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Variable identifier cannot be empty";
+            }
         else Ok (Core_ir.make_expr ~span:e.span (Var name))
     | Unary { op; arg } ->
         let* arg' = lower_expr arg in
@@ -64,9 +70,19 @@ let rec lower_expr (e : Ast.expr) : (Core_ir.expr, Ast.error) result =
              (If { cond = cond'; then_branch = then_branch'; else_branch = else_branch' }))
     | Fun { params; body } ->
         if List.length params = 0 then
-          Error { span = e.span; message = "Lambda must have at least one parameter" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Lambda must have at least one parameter";
+            }
         else if List.exists (fun p -> String.length p = 0) params then
-          Error { span = e.span; message = "Lambda parameter cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Lambda parameter cannot be empty";
+            }
         else
           let* body' = lower_expr body in
           let curried =
@@ -78,9 +94,19 @@ let rec lower_expr (e : Ast.expr) : (Core_ir.expr, Ast.error) result =
           Ok curried
     | Let { name; is_rec; args; value; body } ->
         if String.length name = 0 then
-          Error { span = e.span; message = "Let-binding identifier cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Let-binding identifier cannot be empty";
+            }
         else if List.exists (fun a -> String.length a = 0) args then
-          Error { span = e.span; message = "Let-binding argument cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Let-binding argument cannot be empty";
+            }
         else
           let* value' = lower_expr value in
           let* body' = lower_expr body in
@@ -102,6 +128,7 @@ let lower_decl (d : Ast.decl) : (Core_ir.decl, Ast.error) result =
   if not (Ast.span_is_valid d.span) then
     Error
       {
+        code = Some Error_code.E1007_invalid_span;
         span = d.span;
         message =
           Printf.sprintf "AST declaration violates Law 3 (invalid span): %s"
@@ -111,9 +138,19 @@ let lower_decl (d : Ast.decl) : (Core_ir.decl, Ast.error) result =
     match d.decl_desc with
     | LetDecl { name; is_rec; args; value } ->
         if String.length name = 0 then
-          Error { span = d.span; message = "Let declaration identifier cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = d.span;
+              message = "Let declaration identifier cannot be empty";
+            }
         else if List.exists (fun a -> String.length a = 0) args then
-          Error { span = d.span; message = "Let declaration argument cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = d.span;
+              message = "Let declaration argument cannot be empty";
+            }
         else
           let* value' = lower_expr value in
           let curried_value =
@@ -133,6 +170,7 @@ let lower (p : Ast.program) : (Core_ir.program, Ast.error) result =
   if not (Ast.span_is_valid p.span) then
     Error
       {
+        code = Some Error_code.E1007_invalid_span;
         span = p.span;
         message =
           Printf.sprintf "AST program violates Law 3 (invalid span): %s"

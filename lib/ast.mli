@@ -7,8 +7,11 @@ type span = {
 }
 (** Source location span representing source text coordinates. *)
 
-type error = { span : span; message : string }
-(** Diagnostic error carrying source span and explanation. *)
+type error = { code : Error_code.t option; span : span; message : string }
+(** Diagnostic error carrying source span, explanation, and optional error code. *)
+
+val make_error : ?code:Error_code.t -> span:span -> string -> error
+(** Constructs an [error] with optional error code, span provenance, and message. *)
 
 (** Literals supported by Vesper. *)
 type literal = Int of int | Bool of bool | String of string

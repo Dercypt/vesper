@@ -151,7 +151,8 @@ and compile_expr_into builder (e : Core_ir.expr) : (unit, Ast.error) result =
       | _ ->
           Error
             {
-              Ast.span = e.span;
+              Ast.code = Some Error_code.E0002_internal_error;
+              span = e.span;
               message =
                 Printf.sprintf "Invalid primop arity for %s" (Core_ir.primop_to_string op);
             })

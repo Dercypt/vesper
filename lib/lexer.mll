@@ -3,11 +3,11 @@ open Parser
 
 exception Error of Ast.error
 
-let lex_error lexbuf msg =
+let lex_error ?code lexbuf msg =
   let span =
     Ast.span_of_positions (Lexing.lexeme_start_p lexbuf, Lexing.lexeme_end_p lexbuf)
   in
-  raise (Error { Ast.span; message = msg })
+  raise (Error { Ast.code; span; message = msg })
 }
 
 let whitespace = [' ' '\t' '\r']
@@ -35,7 +35,9 @@ rule token = parse
       {
         match int_of_string_opt raw with
         | Some n -> INT n
-        | None -> lex_error lexbuf (Printf.sprintf "Integer literal overflow: %s" raw)
+        | None ->
+            lex_error ~code:Error_code.E1006_integer_overflow lexbuf
+              (Printf.sprintf "Integer literal overflow: %s" raw)
       }
   | "true"
       { BOOL true }
@@ -122,7 +124,10 @@ rule token = parse
   | eof
       { EOF }
   | _ as c
-      { lex_error lexbuf (Printf.sprintf "Unexpected character: %C" c) }
+      {
+        lex_error ~code:Error_code.E1005_unexpected_char lexbuf
+          (Printf.sprintf "Unexpected character: %C" c)
+      }
 
 and string_literal start_pos buf = parse
   | '"'
@@ -139,7 +144,8 @@ and string_literal start_pos buf = parse
       { Buffer.add_char buf '"'; string_literal start_pos buf lexbuf }
   | '\\' (_ as c)
       {
-        lex_error lexbuf (Printf.sprintf "Invalid character escape: \\%c" c)
+        lex_error ~code:Error_code.E1004_invalid_escape lexbuf
+          (Printf.sprintf "Invalid character escape: \\%c" c)
       }
   | '\n'
       {
@@ -155,7 +161,13 @@ and string_literal start_pos buf = parse
   | eof
       {
         let span = Ast.span_of_positions (start_pos, Lexing.lexeme_end_p lexbuf) in
-        raise (Error { Ast.span; message = "Unterminated string literal" })
+        raise
+          (Error
+             {
+               Ast.code = Some Error_code.E1002_unterminated_string;
+               span;
+               message = "Unterminated string literal";
+             })
       }
 
 and block_comment start_pos depth = parse
@@ -168,7 +180,13 @@ and block_comment start_pos depth = parse
   | eof
       {
         let span = Ast.span_of_positions (start_pos, Lexing.lexeme_end_p lexbuf) in
-        raise (Error { Ast.span; message = "Unclosed block comment" })
+        raise
+          (Error
+             {
+               Ast.code = Some Error_code.E1003_unclosed_comment;
+               span;
+               message = "Unclosed block comment";
+             })
       }
   | _
       { block_comment start_pos depth lexbuf }

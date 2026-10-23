@@ -18,7 +18,8 @@ let severity_to_string = function
   | Warning -> "warning"
   | Note -> "note"
 
-let to_ast_error (diag : t) : Ast.error = { span = diag.span; message = diag.message }
+let to_ast_error (diag : t) : Ast.error =
+  { code = Some diag.code; span = diag.span; message = diag.message }
 
 let of_ast_error ?code ?hint (err : Ast.error) : t =
   let code =

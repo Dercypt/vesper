@@ -68,6 +68,7 @@ let rec validate (p : pattern) : (unit, Ast.error) result =
     Error
       Ast.
         {
+          code = Some Error_code.E1007_invalid_span;
           span = p.span;
           message =
             Printf.sprintf "Pattern violates Law 3 with invalid span: %s"
@@ -79,13 +80,19 @@ let rec validate (p : pattern) : (unit, Ast.error) result =
     | PVar name ->
         if String.length name = 0 then
           Error
-            Ast.{ span = p.span; message = "Variable pattern identifier cannot be empty" }
+            Ast.
+              {
+                code = Some Error_code.E3003_pattern_type_error;
+                span = p.span;
+                message = "Variable pattern identifier cannot be empty";
+              }
         else Ok ()
     | PConstructor (name, args) ->
         if String.length name = 0 then
           Error
             Ast.
               {
+                code = Some Error_code.E3003_pattern_type_error;
                 span = p.span;
                 message = "Constructor pattern identifier cannot be empty";
               }
@@ -97,13 +104,25 @@ let rec validate (p : pattern) : (unit, Ast.error) result =
             (Ok ()) args
     | PRecord fields ->
         if fields = [] then
-          Error Ast.{ span = p.span; message = "Record pattern cannot have empty fields" }
+          Error
+            Ast.
+              {
+                code = Some Error_code.E3003_pattern_type_error;
+                span = p.span;
+                message = "Record pattern cannot have empty fields";
+              }
         else
           List.fold_left
             (fun acc (field_name, field_pat) ->
               let* () = acc in
               if String.length field_name = 0 then
-                Error Ast.{ span = p.span; message = "Record field name cannot be empty" }
+                Error
+                  Ast.
+                    {
+                      code = Some Error_code.E3003_pattern_type_error;
+                      span = p.span;
+                      message = "Record field name cannot be empty";
+                    }
               else validate field_pat)
             (Ok ()) fields
     | PTuple elems ->
@@ -111,6 +130,7 @@ let rec validate (p : pattern) : (unit, Ast.error) result =
           Error
             Ast.
               {
+                code = Some Error_code.E3003_pattern_type_error;
                 span = p.span;
                 message = "Tuple pattern must contain at least two elements";
               }
@@ -129,6 +149,7 @@ let rec validate (p : pattern) : (unit, Ast.error) result =
           Error
             Ast.
               {
+                code = Some Error_code.E3003_pattern_type_error;
                 span = p.span;
                 message =
                   "Both sides of an or-pattern must bind the exact same set of variables";
@@ -136,7 +157,13 @@ let rec validate (p : pattern) : (unit, Ast.error) result =
         else Ok ()
     | PAlias (inner, name) ->
         if String.length name = 0 then
-          Error Ast.{ span = p.span; message = "Alias identifier cannot be empty" }
+          Error
+            Ast.
+              {
+                code = Some Error_code.E3003_pattern_type_error;
+                span = p.span;
+                message = "Alias identifier cannot be empty";
+              }
         else validate inner
 
 let validate_clause (c : clause) : (unit, Ast.error) result =
@@ -144,6 +171,7 @@ let validate_clause (c : clause) : (unit, Ast.error) result =
     Error
       Ast.
         {
+          code = Some Error_code.E1007_invalid_span;
           span = c.span;
           message =
             Printf.sprintf "Clause violates Law 3 with invalid span: %s"
@@ -156,31 +184,56 @@ let validate_clause (c : clause) : (unit, Ast.error) result =
 
 let validate_type_decl (td : type_decl) : (unit, Ast.error) result =
   if String.length td.name = 0 then
-    Error Ast.{ span = Ast.dummy_span; message = "Type declaration name cannot be empty" }
+    Error
+      Ast.
+        {
+          code = Some Error_code.E3003_pattern_type_error;
+          span = Ast.dummy_span;
+          message = "Type declaration name cannot be empty";
+        }
   else if td.variants = [] then
     Error
       Ast.
         {
+          code = Some Error_code.E3003_pattern_type_error;
           span = Ast.dummy_span;
           message = Printf.sprintf "Type '%s' must declare at least one variant" td.name;
         }
   else if List.exists (fun (v, _) -> String.length v = 0) td.variants then
-    Error Ast.{ span = Ast.dummy_span; message = "Variant name cannot be empty" }
+    Error
+      Ast.
+        {
+          code = Some Error_code.E3003_pattern_type_error;
+          span = Ast.dummy_span;
+          message = "Variant name cannot be empty";
+        }
   else Ok ()
 
 let validate_record_decl (rd : record_decl) : (unit, Ast.error) result =
   if String.length rd.name = 0 then
     Error
-      Ast.{ span = Ast.dummy_span; message = "Record declaration name cannot be empty" }
+      Ast.
+        {
+          code = Some Error_code.E3003_pattern_type_error;
+          span = Ast.dummy_span;
+          message = "Record declaration name cannot be empty";
+        }
   else if rd.fields = [] then
     Error
       Ast.
         {
+          code = Some Error_code.E3003_pattern_type_error;
           span = Ast.dummy_span;
           message = Printf.sprintf "Record '%s' must declare at least one field" rd.name;
         }
   else if List.exists (fun (f, _) -> String.length f = 0) rd.fields then
-    Error Ast.{ span = Ast.dummy_span; message = "Record field name cannot be empty" }
+    Error
+      Ast.
+        {
+          code = Some Error_code.E3003_pattern_type_error;
+          span = Ast.dummy_span;
+          message = "Record field name cannot be empty";
+        }
   else Ok ()
 
 let rec equal (p1 : pattern) (p2 : pattern) : bool =

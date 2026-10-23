@@ -178,13 +178,15 @@ let scan_imports_from_file (file_path : string) : (import_info list, Ast.error) 
   | Sys_error msg ->
       Error
         {
-          Ast.span = dummy_span;
+          Ast.code = Some Error_code.E0001_io_error;
+          span = dummy_span;
           message = Printf.sprintf "I/O error reading file '%s': %s" file_path msg;
         }
   | exn ->
       Error
         {
-          Ast.span = dummy_span;
+          Ast.code = Some Error_code.E0001_io_error;
+          span = dummy_span;
           message =
             Printf.sprintf "Unexpected failure reading file '%s': %s" file_path
               (Printexc.to_string exn);
@@ -396,7 +398,11 @@ let detect_cycles (g : t) : (unit, Ast.error) result =
             match node_span start_node g with Some s -> s | None -> Ast.dummy_span)
       in
       Error
-        { Ast.span; message = Printf.sprintf "Cyclic dependency detected: %s" cycle_str }
+        {
+          Ast.code = Some Error_code.E4001_cyclic_dependency;
+          span;
+          message = Printf.sprintf "Cyclic dependency detected: %s" cycle_str;
+        }
 
 (** {1 Topological Sort & Build Ordering (Mini-Goal 7.2, Step 7.2.5)} *)
 

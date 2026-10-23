@@ -45,6 +45,7 @@ let rec validate_expr (e : expr) : (unit, Ast.error) result =
   if not (Ast.span_is_valid e.span) then
     Error
       {
+        code = Some Error_code.E1007_invalid_span;
         span = e.span;
         message =
           Printf.sprintf "Core IR expression violates Law 3 (invalid span provenance): %s"
@@ -55,17 +56,32 @@ let rec validate_expr (e : expr) : (unit, Ast.error) result =
     | Lit (Int _) | Lit (Bool _) | Lit (String _) -> Ok ()
     | Var name ->
         if String.length name = 0 then
-          Error { span = e.span; message = "Variable identifier cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Variable identifier cannot be empty";
+            }
         else Ok ()
     | Let { name; is_rec = _; value; body } ->
         if String.length name = 0 then
-          Error { span = e.span; message = "Let-binding identifier cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Let-binding identifier cannot be empty";
+            }
         else
           let* () = validate_expr value in
           validate_expr body
     | Fun { param; body } ->
         if String.length param = 0 then
-          Error { span = e.span; message = "Lambda parameter cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = e.span;
+              message = "Lambda parameter cannot be empty";
+            }
         else validate_expr body
     | App { fn; arg } ->
         let* () = validate_expr fn in
@@ -79,6 +95,7 @@ let rec validate_expr (e : expr) : (unit, Ast.error) result =
         if List.length args <> expected_arity then
           Error
             {
+              code = Some Error_code.E0002_internal_error;
               span = e.span;
               message =
                 Printf.sprintf "PrimOp '%s' expects %d arguments but received %d"
@@ -101,6 +118,7 @@ let validate_decl (d : decl) : (unit, Ast.error) result =
   if not (Ast.span_is_valid d.span) then
     Error
       {
+        code = Some Error_code.E1007_invalid_span;
         span = d.span;
         message =
           Printf.sprintf
@@ -111,7 +129,12 @@ let validate_decl (d : decl) : (unit, Ast.error) result =
     match d.desc with
     | LetDecl { name; is_rec = _; value } ->
         if String.length name = 0 then
-          Error { span = d.span; message = "Let declaration identifier cannot be empty" }
+          Error
+            {
+              code = Some Error_code.E1008_syntax_error;
+              span = d.span;
+              message = "Let declaration identifier cannot be empty";
+            }
         else validate_expr value
     | ExprDecl e -> validate_expr e
 
@@ -125,6 +148,7 @@ let validate_program (p : program) : (unit, Ast.error) result =
   if not (Ast.span_is_valid p.span) then
     Error
       {
+        code = Some Error_code.E1007_invalid_span;
         span = p.span;
         message =
           Printf.sprintf "Core IR program violates Law 3 (invalid span provenance): %s"
