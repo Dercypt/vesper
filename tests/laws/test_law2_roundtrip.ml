@@ -131,6 +131,10 @@ let test_roundtrip_precedence_handcrafted () =
       "if (if a then b else c) then d else e;";
       "let x = \"hello \\\"world\\\" \\n tab\\t\";";
       "let f x y = x + y;\nlet g z = f z z;\ng 10;";
+      "-5;";
+      "(-5) + 3;";
+      "-x * (-y);";
+      "- (1 + 2);";
     ]
   in
   List.iter
@@ -196,10 +200,24 @@ let test_comments_and_whitespace () =
       Alcotest.fail (Printf.sprintf "Failed to parse input with comments: %s" err.message)
   | Ok prog -> Alcotest.(check int) "Parses 3 declarations" 3 (List.length prog.decls)
 
+let test_negative_literal_rejection () =
+  let neg_expr = { span = dummy_loc; desc = Lit (Int (-5)) } in
+  match Ast.validate_expr neg_expr with
+  | Ok () -> Alcotest.fail "Expected Ast.validate_expr to reject negative Lit (Int n)"
+  | Error err ->
+      Alcotest.(check bool)
+        "Rejection error code is E1008_syntax_error" true
+        (err.code = Some Error_code.E1008_syntax_error);
+      Alcotest.(check bool)
+        "Diagnostic message mentions negative integer" true
+        (String.length err.message > 0)
+
 let tests =
   [
     Alcotest.test_case "Handcrafted operator precedence & structure roundtrip" `Quick
       test_roundtrip_precedence_handcrafted;
+    Alcotest.test_case "Negative integer literal AST rejection" `Quick
+      test_negative_literal_rejection;
     Alcotest.test_case "Property fuzzing 1,000 random AST roundtrips" `Quick
       test_roundtrip_fuzz_1000;
     Alcotest.test_case "Comment and whitespace tolerance" `Quick
