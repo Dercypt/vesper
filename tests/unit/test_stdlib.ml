@@ -330,9 +330,41 @@ let test_prelude () =
   (match run_with_prelude_vm "string_concat \"foo\" \"bar\";" with
   | Ok (Value.VString "foobar") -> ()
   | _ -> Alcotest.fail "Expected string_concat = \"foobar\"");
-  match run_with_prelude_vm "string_is_empty \"\";" with
+  (match run_with_prelude_vm "string_is_empty \"\";" with
   | Ok (Value.VBool true) -> ()
-  | _ -> Alcotest.fail "Expected string_is_empty = true"
+  | _ -> Alcotest.fail "Expected string_is_empty = true");
+
+  (* Cached VM environment and direct VM run without AST prepending *)
+  let vm_env1 = Prelude.default_vm_env () in
+  let vm_env2 = Prelude.default_vm_env () in
+  Alcotest.(check bool) "vm_env cached identically" true (vm_env1 == vm_env2);
+  Alcotest.(check bool) "vm_env has abs" true (Env.mem "abs" vm_env1);
+  Alcotest.(check bool) "vm_env has min" true (Env.mem "min" vm_env1);
+  Alcotest.(check bool) "vm_env has clamp" true (Env.mem "clamp" vm_env1);
+  (match Env.lookup "abs" vm_env1 with
+  | Some (Value.VBytecodeClosure _) -> ()
+  | _ -> Alcotest.fail "Expected VBytecodeClosure for abs in vm_env");
+
+  let run_cached_prelude_vm src =
+    match Parse_facade.parse_string ~file:"<test>" src with
+    | Error diag -> Error diag.message
+    | Ok prog -> (
+        match Compiler.compile prog with
+        | Error err -> Error err.message
+        | Ok chunk -> (
+            match Vm.run ~env:vm_env1 chunk with
+            | Ok v -> Ok v
+            | Error diag -> Error diag.message))
+  in
+  (match run_cached_prelude_vm "abs (-99);" with
+  | Ok (Value.VInt 99) -> ()
+  | _ -> Alcotest.fail "Expected abs (-99) = 99");
+  (match run_cached_prelude_vm "compose succ abs (-5);" with
+  | Ok (Value.VInt 6) -> ()
+  | _ -> Alcotest.fail "Expected compose succ abs (-5) = 6");
+  match run_cached_prelude_vm "fib 10;" with
+  | Ok (Value.VInt 55) -> ()
+  | _ -> Alcotest.fail "Expected fib 10 = 55"
 
 let () =
   let open Alcotest in

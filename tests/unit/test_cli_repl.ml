@@ -60,6 +60,32 @@ let test_repl_state () =
       | Ok (_, line) -> Alcotest.(check string) "expr output" "- : int = 43" line
       | Error _ -> Alcotest.fail "expr failed")
 
+let test_repl_closure_captures () =
+  let st = Repl.initial () in
+  match Repl.eval_input st "let make_adder x = fun y -> x + y;" with
+  | Error diags ->
+      let msg = String.concat "\n" (List.map (fun d -> d.Diagnostic.message) diags) in
+      Alcotest.fail ("defining make_adder failed: " ^ msg)
+  | Ok (st1, _) -> (
+      match Repl.eval_input st1 "let add5 = make_adder 5;" with
+      | Error _ -> Alcotest.fail "defining add5 failed"
+      | Ok (st2, _) -> (
+          match Repl.eval_input st2 "let add10 = make_adder 10;" with
+          | Error _ -> Alcotest.fail "defining add10 failed"
+          | Ok (st3, _) -> (
+              (match Repl.eval_input st3 "add5 3;" with
+              | Ok (_, line) -> Alcotest.(check string) "add5 3" "- : int = 8" line
+              | Error _ -> Alcotest.fail "calling add5 failed");
+              (match Repl.eval_input st3 "add10 3;" with
+              | Ok (_, line) -> Alcotest.(check string) "add10 3" "- : int = 13" line
+              | Error _ -> Alcotest.fail "calling add10 failed");
+              (match Repl.eval_input st3 "abs (-42);" with
+              | Ok (_, line) -> Alcotest.(check string) "abs in REPL" "- : int = 42" line
+              | Error _ -> Alcotest.fail "calling abs failed");
+              match Repl.eval_input st3 "fib 7;" with
+              | Ok (_, line) -> Alcotest.(check string) "fib in REPL" "- : int = 13" line
+              | Error _ -> Alcotest.fail "calling fib failed")))
+
 let test_repl_errors () =
   let st = Repl.initial () in
   Alcotest.(check bool) "syntax" true (is_error (Repl.eval_input st "let = ;"));
@@ -110,6 +136,7 @@ let () =
           Alcotest.test_case "argument parsing" `Quick test_parse_args;
           Alcotest.test_case "eval command" `Quick test_eval;
           Alcotest.test_case "repl state" `Quick test_repl_state;
+          Alcotest.test_case "repl closure captures" `Quick test_repl_closure_captures;
           Alcotest.test_case "repl errors" `Quick test_repl_errors;
           Alcotest.test_case "repl loop" `Quick test_repl_run;
         ] );
