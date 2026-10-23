@@ -197,11 +197,11 @@ let test_static_closures () =
       | Error err -> Alcotest.fail err.message
       | Ok chunk -> (
           match VM.run_vm chunk with
-          | Ok (VM.VClosure { chunk = fn_chunk; _ }) ->
+          | Ok (Value.VBytecodeClosure { chunk = fn_chunk; _ }) ->
               Alcotest.(check bool)
                 "compiled closure has instructions" true
                 (Bytecode.length fn_chunk > 0)
-          | _ -> Alcotest.fail "Expected VM.VClosure from run_vm"))
+          | _ -> Alcotest.fail "Expected Value.VBytecodeClosure from run_vm"))
 
 let test_compile_fun_error_propagation () =
   let valid_span =
