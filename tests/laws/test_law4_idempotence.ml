@@ -155,6 +155,45 @@ let test_fuzz_1000_idempotence () =
                  (span_to_string err.span)))
   done
 
+let test_compiler_normalization () =
+  let src = "let x = 1 + 2; let y = if true then 42 else 99; x + y;" in
+  match Parse_facade.parse_string ~file:"norm_test.vesper" src with
+  | Error err -> Alcotest.fail err.message
+  | Ok ast -> (
+      match Compiler.compile ast with
+      | Error err -> Alcotest.fail err.message
+      | Ok chunk -> (
+          let has_const_3 =
+            Array.exists (fun c -> Value.equal c (Value.VInt 3)) chunk.constants
+          in
+          let has_const_42 =
+            Array.exists (fun c -> Value.equal c (Value.VInt 42)) chunk.constants
+          in
+          let has_const_99 =
+            Array.exists (fun c -> Value.equal c (Value.VInt 99)) chunk.constants
+          in
+          let has_jump =
+            Array.exists
+              (function Opcode.Op_JumpIfFalse _ | Opcode.Op_Jump _ -> true | _ -> false)
+              chunk.code
+          in
+          Alcotest.(check bool) "Constant 3 present from 1 + 2 folding" true has_const_3;
+          Alcotest.(check bool) "Constant 42 present from DCE folding" true has_const_42;
+          Alcotest.(check bool) "Dead branch constant 99 eliminated" false has_const_99;
+          Alcotest.(check bool) "No branch opcodes for constant condition" false has_jump;
+          match Vm.run chunk with
+          | Ok (Value.VInt 45) -> ()
+          | Ok other -> Alcotest.fail ("Expected 45, got " ^ Value.to_string other)
+          | Error diag -> Alcotest.fail diag.message))
+
+let test_repl_normalization () =
+  let st = Repl.initial () in
+  match Repl.eval_input st "let x = if false then 10 else 20 + 22;" with
+  | Ok (_, line) ->
+      Alcotest.(check string) "REPL constant folded and evaluated" "val x : int = 42" line
+  | Error diags ->
+      Alcotest.fail (String.concat "\n" (List.map (fun d -> d.Diagnostic.message) diags))
+
 let tests =
   [
     Alcotest.test_case "Constant folding arithmetic" `Quick
@@ -167,4 +206,8 @@ let tests =
       test_safe_division_by_zero;
     Alcotest.test_case "1,000 random programs satisfy single-step idempotence (Law 4)"
       `Quick test_fuzz_1000_idempotence;
+    Alcotest.test_case "Compiler.compile applies normalization pass" `Quick
+      test_compiler_normalization;
+    Alcotest.test_case "Repl.eval_input applies normalization pass" `Quick
+      test_repl_normalization;
   ]

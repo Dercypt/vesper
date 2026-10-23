@@ -257,4 +257,5 @@ let compile_program ?(env = Env.empty) (p : Core_ir.program) :
 
 let compile (ast : Ast.program) : (Bytecode.chunk, Ast.error) result =
   let* core = Desugar.lower ast in
-  compile_program core
+  let norm = Normalize.normalize core in
+  compile_program norm
