@@ -242,6 +242,49 @@ let gen_adversarial_sample () =
       let digits = String.make (20 + Random.int 30) '9' in
       "let x = " ^ digits ^ ";"
 
+let test_structured_error_codes () =
+  let check_err input expected_code =
+    match Parse_facade.parse_string ~file:"code_test.vesper" input with
+    | Ok _ -> Alcotest.fail ("Expected syntax error on: " ^ input)
+    | Error diag ->
+        Alcotest.(check bool)
+          ("Error code matches for: " ^ input)
+          true
+          (Error_code.equal diag.code expected_code)
+  in
+  check_err "\"invalid \\q escape\"" Error_code.E1004_invalid_escape;
+  check_err "/* unclosed comment" Error_code.E1003_unclosed_comment;
+  check_err "@" Error_code.E1005_unexpected_char;
+  check_err "9999999999999999999999999999999999" Error_code.E1006_integer_overflow;
+
+  (* Ensure Compiler primop arity error is E0002_internal_error, not misclassified as E1004_invalid_escape *)
+  let span =
+    match
+      create_span ~file:"test.vesper" ~start_line:1 ~start_col:0 ~end_line:1 ~end_col:5
+    with
+    | Ok s -> s
+    | Error _ -> Ast.dummy_span
+  in
+  let invalid_ir =
+    Core_ir.make_expr ~span
+      (Core_ir.PrimOp
+         {
+           op = Core_ir.Add;
+           args = [ Core_ir.make_expr ~span (Core_ir.Lit (Ast.Int 1)) ];
+         })
+  in
+  match Compiler.compile_expr invalid_ir with
+  | Ok _ -> Alcotest.fail "Expected compilation error on invalid primop arity"
+  | Error err ->
+      let diag = Diagnostic.of_ast_error err in
+      Alcotest.(check bool)
+        "Compiler primop arity is E0002_internal_error" true
+        (Error_code.equal diag.code Error_code.E0002_internal_error);
+      Alcotest.(check bool)
+        "Compiler primop arity does not match E1004" false
+        (Error_code.equal diag.code Error_code.E1004_invalid_escape);
+      Alcotest.(check (option string)) "Escape hint is absent" None diag.hint
+
 let test_10000_adversarial_fuzzing () =
   Random.init 42;
   let sample_count = 10_000 in
@@ -271,6 +314,8 @@ let tests =
     test_case "Driver file reading and CLI isolation" `Quick test_driver_isolation;
     test_case "Diagnostic line snippet and terminal formatting" `Quick
       test_diagnostic_rendering;
+    test_case "Structured error codes are preserved without substring matching" `Quick
+      test_structured_error_codes;
     test_case "10,000 adversarial fuzzing inputs isolate host completely" `Quick
       test_10000_adversarial_fuzzing;
   ]
