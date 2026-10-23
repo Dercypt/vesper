@@ -1,8 +1,19 @@
-type t =
+type chunk = {
+  code : Opcode.t array;
+  constants : t array;
+  spans : Ast.span array;
+  children : chunk array;
+  param : string option;
+  body : Core_ir.expr option;
+  captures : (string * int) array;
+}
+
+and t =
   | VInt of int
   | VBool of bool
   | VString of string
   | VClosure of { param : string; body : Core_ir.expr; env : env }
+  | VBytecodeClosure of { chunk : chunk; env : env }
   | VUnit
   | VConstruct of string * t list
   | VRecord of (string * t) list
@@ -23,12 +34,13 @@ let record_field name = function
   | _ -> None
 
 let closure ~param ~body ~env = VClosure { param; body; env }
+let bytecode_closure ~chunk ~env = VBytecodeClosure { chunk; env }
 
 let type_of = function
   | VInt _ -> "int"
   | VBool _ -> "bool"
   | VString _ -> "string"
-  | VClosure _ -> "function"
+  | VClosure _ | VBytecodeClosure _ -> "function"
   | VUnit -> "unit"
   | VConstruct (name, _) -> name
   | VRecord _ -> "record"
@@ -38,6 +50,9 @@ let rec pp fmt = function
   | VBool b -> Format.fprintf fmt "%b" b
   | VString s -> Format.fprintf fmt "%S" s
   | VClosure { param; _ } -> Format.fprintf fmt "<fun %s>" param
+  | VBytecodeClosure { chunk; _ } ->
+      let param = match chunk.param with Some p -> p | None -> "_" in
+      Format.fprintf fmt "<fun %s>" param
   | VUnit -> Format.fprintf fmt "()"
   | VConstruct (c, []) -> Format.fprintf fmt "%s" c
   | VConstruct (c, args) ->
@@ -53,7 +68,30 @@ let rec pp fmt = function
 
 let to_string v = Format.asprintf "%a" pp v
 
-let equal v1 v2 =
+let rec equal_chunk c1 c2 =
+  let code_eq =
+    Array.length c1.code = Array.length c2.code
+    && Array.for_all2 Opcode.equal c1.code c2.code
+  in
+  let const_eq =
+    Array.length c1.constants = Array.length c2.constants
+    && Array.for_all2 equal c1.constants c2.constants
+  in
+  let children_eq =
+    Array.length c1.children = Array.length c2.children
+    && Array.for_all2 equal_chunk c1.children c2.children
+  in
+  let param_eq = Option.equal String.equal c1.param c2.param in
+  let body_eq = Option.equal Core_ir.expr_equal c1.body c2.body in
+  let captures_eq =
+    Array.length c1.captures = Array.length c2.captures
+    && Array.for_all2
+         (fun (s1, i1) (s2, i2) -> String.equal s1 s2 && i1 = i2)
+         c1.captures c2.captures
+  in
+  code_eq && const_eq && children_eq && param_eq && body_eq && captures_eq
+
+and equal v1 v2 =
   let rec eq_val visited v1 v2 =
     if v1 == v2 then true
     else if
@@ -76,6 +114,19 @@ let equal v1 v2 =
           if String.equal p1 p2 && Core_ir.expr_equal b1 b2 then
             eq_env ((v1, v2) :: visited) e1 e2
           else false
+      | ( VBytecodeClosure { chunk = c1; env = e1 },
+          VBytecodeClosure { chunk = c2; env = e2 } ) ->
+          if equal_chunk c1 c2 then eq_env ((v1, v2) :: visited) e1 e2 else false
+      | ( VBytecodeClosure { chunk = c1; env = e1 },
+          VClosure { param = p2; body = b2; env = e2 } )
+      | ( VClosure { param = p2; body = b2; env = e2 },
+          VBytecodeClosure { chunk = c1; env = e1 } ) -> (
+          match (c1.param, c1.body) with
+          | Some p1, Some b1 ->
+              if String.equal p1 p2 && Core_ir.expr_equal b1 b2 then
+                eq_env ((v1, v2) :: visited) e1 e2
+              else false
+          | _ -> false)
       | _ -> false
   and eq_env visited e1 e2 =
     List.equal

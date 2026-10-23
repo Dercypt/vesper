@@ -134,6 +134,7 @@ let value_of_eval_value (top_v : Value.t) : value =
                 let res = VClosure { chunk; env = outer_env } in
                 visited := (clos, res) :: !visited;
                 res))
+    | Value.VBytecodeClosure { chunk; env } -> VClosure { chunk; env = conv_env env }
   and conv_env env = List.map (fun (k, v) -> (k, conv_val v)) env in
   conv_val top_v
 

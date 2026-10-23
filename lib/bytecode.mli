@@ -2,7 +2,7 @@
     contain instruction buffers, constant pools, and debug span tables fulfilling Law 3
     (Strict Source Provenance). *)
 
-type chunk = {
+type chunk = Value.chunk = {
   code : Opcode.t array;
   constants : Value.t array;
   spans : Ast.span array;
