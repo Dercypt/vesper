@@ -172,7 +172,15 @@ let test_recursion () =
   check_type "fibonacci" "int -> int"
     "let rec fib n = if n <= 1 then n else fib (n - 1) + fib (n - 2); fib;";
   check_type "gcd" "int -> int -> int"
-    "let rec gcd a b = if b == 0 then a else gcd b (a % b); gcd;"
+    "let rec gcd a b = if b == 0 then a else gcd b (a % b); gcd;";
+  check_type "let rec expr fun" "int"
+    "let rec f = fun x -> if x <= 0 then 0 else f (x - 1) in f 10;";
+  check_type "let rec expr args" "int"
+    "let rec f x = if x <= 0 then 0 else f (x - 1) in f 10;";
+  check_type "let rec decl fun" "int"
+    "let rec f = fun x -> if x <= 0 then 0 else f (x - 1); f 10;";
+  check_type "let rec decl args" "int"
+    "let rec f x = if x <= 0 then 0 else f (x - 1); f 10;"
 
 let parse_expr src =
   match Parse_facade.parse_string ~file:"<bidirectional_test>" src with
@@ -215,7 +223,17 @@ let test_negative_type_errors () =
     "let f = fun x -> x x in f;";
   check_type_err "calling non-function" "Type mismatch" "let x = 42; x 10;";
   check_type_err "function argument mismatch" "Type mismatch"
-    "let inc = fun x -> x + 1; inc \"forty-two\";"
+    "let inc = fun x -> x + 1; inc \"forty-two\";";
+  check_type_err "let rec non-function int expr" "Recursive bindings must bind a function"
+    "let rec x = 1 in x;";
+  check_type_err "let rec non-function var expr" "Recursive bindings must bind a function"
+    "let rec x = x in x;";
+  check_type_err "let rec non-function decl var" "Recursive bindings must bind a function"
+    "let rec x = x; x + 1;";
+  check_type_err "let rec non-function decl shadow"
+    "Recursive bindings must bind a function" "let x = \"hello\"; let rec x = x + 1; x;";
+  check_type_err "let rec non-function decl int" "Recursive bindings must bind a function"
+    "let rec x = 42; x;"
 
 let test_diagnostics_and_spans () =
   (* Verify that error coordinates point to offending token span *)

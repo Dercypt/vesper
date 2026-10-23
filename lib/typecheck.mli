@@ -28,7 +28,9 @@ type typed_ir = typed_program
 val infer : Type_env.t -> Ast.expr -> (Types.subst * Types.t, Ast.error) result
 (** Synthesizes (infers) the most general type of an AST expression under a given typing
     environment using Hindley-Milner Algorithm W. Returns the inferred substitution and
-    type. *)
+    type. Recursive bindings ([let rec]) strictly require the bound value to be a
+    function, returning [Error_code.E2001_type_error] otherwise to guarantee type
+    soundness. *)
 
 val check : Type_env.t -> Ast.expr -> Types.t -> (Types.subst, Ast.error) result
 (** Verifies (checks) that an AST expression conforms to an expected type in bidirectional
@@ -36,12 +38,13 @@ val check : Type_env.t -> Ast.expr -> Types.t -> (Types.subst, Ast.error) result
 
 val typecheck_expr : ?env:Type_env.t -> Ast.expr -> (typed_expr, Ast.error) result
 (** Typechecks an expression, returning a [typed_expr] with all substitutions applied to
-    its type. *)
+    its type. Recursive bindings must syntactically evaluate to functions. *)
 
 val typecheck_decl :
   ?env:Type_env.t -> Ast.decl -> (typed_decl * Type_env.t, Ast.error) result
 (** Typechecks a top-level declaration, returning the typed declaration and the extended
-    typing environment. *)
+    typing environment. Recursive bindings ([let rec]) must syntactically evaluate to
+    functions, returning [Error_code.E2001_type_error] otherwise. *)
 
 val typecheck_program :
   ?env:Type_env.t -> Ast.program -> (typed_program, Diagnostic.t list) result
