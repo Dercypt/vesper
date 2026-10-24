@@ -24,3 +24,9 @@ A pure functional programming language with Hindley-Milner type inference, a byt
 opam install -y dune menhir alcotest ocamlformat
 dune build
 ```
+
+## Usage
+
+```bash
+dune exec -- vesper run hello.vesper
+```
