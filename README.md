@@ -11,3 +11,15 @@ Tech Stack
     Menhir
 
     Alcotest
+
+Features
+
+    Hindley-Milner type inference
+
+    Bytecode virtual machine
+
+    Interactive REPL
+
+    Code formatter
+
+    Language Server Protocol
