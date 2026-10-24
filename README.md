@@ -9,3 +9,11 @@ A pure, statically typed functional programming language implemented in OCaml wi
 - **Menhir & ocamllex**
 - **Alcotest**
 - **OCamlFormat**
+
+## Features
+
+- Pure functional semantics with immutable bindings, curried functions, and recursion.
+- Hindley-Milner static type inference via Algorithm W.
+- Stack-based bytecode compiler and virtual machine runtime.
+- Integrated CLI toolchain providing execution, typechecking, formatting, a REPL, bytecode disassembly, and an LSP server.
+- Formally verified invariants for syntax invertibility, error diagnosability, source spans, and determinism.
