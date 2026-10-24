@@ -33,3 +33,7 @@ Usage
 Bash
 
 dune exec -- vesper run hello.vesper
+
+License
+
+MIT
