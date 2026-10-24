@@ -31,6 +31,8 @@ dune build
 
 ## Usage
 
+Execute a Vesper program using Dune:
+
 ```bash
 dune exec -- vesper run hello.vesper
 ```
