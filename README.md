@@ -28,3 +28,8 @@ Installation
 Bash
 
 opam install -y dune menhir alcotest ocamlformat && dune build
+
+Usage
+Bash
+
+dune exec -- vesper run hello.vesper
