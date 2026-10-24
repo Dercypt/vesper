@@ -20,12 +20,18 @@ A pure functional programming language with Hindley-Milner type inference, a byt
 
 ## Installation
 
+Clone the repository and install dependencies with opam:
+
 ```bash
+git clone https://github.com/Dercypt/vesper.git
+cd vesper
 opam install -y dune menhir alcotest ocamlformat
 dune build
 ```
 
 ## Usage
+
+Execute a Vesper program using Dune:
 
 ```bash
 dune exec -- vesper run hello.vesper
