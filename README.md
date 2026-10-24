@@ -17,3 +17,10 @@ A pure functional programming language with Hindley-Milner type inference, a byt
 - Interactive REPL
 - Code formatter
 - Language Server Protocol
+
+## Installation
+
+```bash
+opam install -y dune menhir alcotest ocamlformat
+dune build
+```
