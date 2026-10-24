@@ -9,3 +9,11 @@ A pure functional programming language with Hindley-Milner type inference, a byt
 - Menhir
 - Alcotest
 - OCamlFormat
+
+## Features
+
+- Hindley-Milner type inference
+- Bytecode virtual machine
+- Interactive REPL
+- Code formatter
+- Language Server Protocol
