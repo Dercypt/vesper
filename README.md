@@ -26,3 +26,27 @@ Install dependencies and compile the project using opam and Dune:
 opam install -y dune menhir alcotest ocamlformat
 dune build
 ```
+
+## Usage
+
+Run Vesper commands using Dune:
+
+```bash
+# Execute a script
+dune exec -- vesper run <file.vesper>
+
+# Typecheck without executing
+dune exec -- vesper check <file.vesper>
+
+# Format a source file
+dune exec -- vesper fmt <file.vesper>
+
+# Start an interactive REPL session
+dune exec -- vesper repl
+
+# Disassemble bytecode
+dune exec -- vesper disasm <file.vesper>
+
+# Start the Language Server Protocol (LSP) server
+dune exec -- vesper lsp
+```
