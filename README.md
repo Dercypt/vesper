@@ -1,39 +1,36 @@
-Vesper
+# Vesper
 
 A pure functional programming language with Hindley-Milner type inference, a bytecode virtual machine, and a built-in developer toolchain.
 
-Tech Stack
+## Tech Stack
 
-    OCaml
+- OCaml
+- Dune
+- Menhir
+- Alcotest
+- OCamlFormat
 
-    Dune
+## Features
 
-    Menhir
+- Hindley-Milner type inference
+- Bytecode virtual machine
+- Interactive REPL
+- Code formatter
+- Language Server Protocol
 
-    Alcotest
+## Installation
 
-Features
+```bash
+opam install -y dune menhir alcotest ocamlformat
+dune build
+```
 
-    Hindley-Milner type inference
+## Usage
 
-    Bytecode virtual machine
-
-    Interactive REPL
-
-    Code formatter
-
-    Language Server Protocol
-
-Installation
-Bash
-
-opam install -y dune menhir alcotest ocamlformat && dune build
-
-Usage
-Bash
-
+```bash
 dune exec -- vesper run hello.vesper
+```
 
-License
+## License
 
 MIT
