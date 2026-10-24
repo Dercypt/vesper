@@ -50,3 +50,7 @@ dune exec -- vesper disasm <file.vesper>
 # Start the Language Server Protocol (LSP) server
 dune exec -- vesper lsp
 ```
+
+## License
+
+This project is licensed under the MIT License.
