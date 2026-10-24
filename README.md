@@ -30,3 +30,7 @@ dune build
 ```bash
 dune exec -- vesper run hello.vesper
 ```
+
+## License
+
+MIT
