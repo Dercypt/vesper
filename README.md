@@ -23,3 +23,8 @@ Features
     Code formatter
 
     Language Server Protocol
+
+Installation
+Bash
+
+opam install -y dune menhir alcotest ocamlformat && dune build
