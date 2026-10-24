@@ -17,3 +17,12 @@ A pure, statically typed functional programming language implemented in OCaml wi
 - Stack-based bytecode compiler and virtual machine runtime.
 - Integrated CLI toolchain providing execution, typechecking, formatting, a REPL, bytecode disassembly, and an LSP server.
 - Formally verified invariants for syntax invertibility, error diagnosability, source spans, and determinism.
+
+## Installation
+
+Install dependencies and compile the project using opam and Dune:
+
+```bash
+opam install -y dune menhir alcotest ocamlformat
+dune build
+```
