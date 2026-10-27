@@ -352,6 +352,103 @@ let test_decision_tree_lowering_to_core () =
       | _ -> Alcotest.fail "Expected If node in lowered Core IR")
   | Error err -> Alcotest.fail err.message
 
+let test_decision_tree_lowering_errors () =
+  let span = test_span in
+  let dummy_expr = Core_ir.make_expr ~span (Core_ir.Lit (Ast.Int 42)) in
+
+  (* 1. SwitchConstructor error *)
+  let ctor_tree =
+    Pat_compile.SwitchConstructor
+      {
+        target = Pat_compile.Here;
+        span;
+        cases =
+          [
+            ( "Some",
+              Pat_compile.Leaf
+                { action_id = 0; span; bindings = []; guard = None; body = dummy_expr } );
+          ];
+        default = None;
+      }
+  in
+  let res_ctor = Pat_compile.lower_to_core ~span ~target_var:"x" ctor_tree in
+  Alcotest.(check bool) "SwitchConstructor returns Error" true (Result.is_error res_ctor);
+
+  (* 2. Failure node error *)
+  let fail_tree = Pat_compile.Failure { span } in
+  let res_fail = Pat_compile.lower_to_core ~span ~target_var:"x" fail_tree in
+  Alcotest.(check bool) "Failure returns Error" true (Result.is_error res_fail);
+
+  (* 3. SwitchLit without default returns Error *)
+  let lit_no_def =
+    Pat_compile.SwitchLit
+      {
+        target = Pat_compile.Here;
+        span;
+        cases =
+          [
+            ( Ast.Int 1,
+              Pat_compile.Leaf
+                { action_id = 0; span; bindings = []; guard = None; body = dummy_expr } );
+          ];
+        default = None;
+      }
+  in
+  let res_lit = Pat_compile.lower_to_core ~span ~target_var:"x" lit_no_def in
+  Alcotest.(check bool)
+    "Missing literal default returns Error" true (Result.is_error res_lit);
+
+  (* 4. Leaf with non-root binding path returns Error *)
+  let leaf_non_root =
+    Pat_compile.Leaf
+      {
+        action_id = 0;
+        span;
+        bindings = [ ("v", Pat_compile.Arg (0, Pat_compile.Here)) ];
+        guard = None;
+        body = dummy_expr;
+      }
+  in
+  let res_leaf = Pat_compile.lower_to_core ~span ~target_var:"x" leaf_non_root in
+  Alcotest.(check bool)
+    "Non-root Leaf binding path returns Error" true (Result.is_error res_leaf);
+
+  (* 5. SwitchBool with non-root target returns Error *)
+  let bool_non_root =
+    Pat_compile.SwitchBool
+      {
+        target = Pat_compile.Arg (0, Pat_compile.Here);
+        span;
+        true_branch =
+          Pat_compile.Leaf
+            { action_id = 0; span; bindings = []; guard = None; body = dummy_expr };
+        false_branch =
+          Pat_compile.Leaf
+            { action_id = 1; span; bindings = []; guard = None; body = dummy_expr };
+      }
+  in
+  let res_bool = Pat_compile.lower_to_core ~span ~target_var:"x" bool_non_root in
+  Alcotest.(check bool)
+    "Non-root SwitchBool target returns Error" true (Result.is_error res_bool);
+
+  (* 6. Guard with non-root binding path returns Error *)
+  let guard_non_root =
+    Pat_compile.Guard
+      {
+        bindings = [ ("v", Pat_compile.Field ("f", Pat_compile.Here)) ];
+        condition = Core_ir.make_expr ~span (Core_ir.Lit (Ast.Bool true));
+        then_tree =
+          Pat_compile.Leaf
+            { action_id = 0; span; bindings = []; guard = None; body = dummy_expr };
+        else_tree =
+          Pat_compile.Leaf
+            { action_id = 1; span; bindings = []; guard = None; body = dummy_expr };
+      }
+  in
+  let res_guard = Pat_compile.lower_to_core ~span ~target_var:"x" guard_non_root in
+  Alcotest.(check bool)
+    "Non-root Guard binding path returns Error" true (Result.is_error res_guard)
+
 let test_deterministic_evaluation () =
   let sig_env = standard_sig_env in
   let span = test_span in
@@ -548,6 +645,8 @@ let () =
         [
           test_case "Lowering decision trees to Core IR conditionals" `Quick
             test_decision_tree_lowering_to_core;
+          test_case "Explicit errors on unsupported lowering constructs" `Quick
+            test_decision_tree_lowering_errors;
         ] );
       ( "Deterministic Evaluation",
         [

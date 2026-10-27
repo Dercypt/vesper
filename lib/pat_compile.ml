@@ -683,57 +683,133 @@ let rec lower_to_core ~span ~target_var (tree : decision_tree) :
   let target_node = Core_ir.make_expr ~span (Core_ir.Var target_var) in
   match tree with
   | Leaf act ->
-      let curried_body =
-        List.fold_left
-          (fun acc_body (vname, p) ->
-            if String.equal (path_to_string p) "$" then
-              Core_ir.make_expr ~span:act.span
-                (Core_ir.Let
-                   { name = vname; is_rec = false; value = target_node; body = acc_body })
-            else acc_body)
-          act.body act.bindings
-      in
-      Ok curried_body
-  | SwitchBool { true_branch; false_branch; span = s; _ } ->
-      let* tb = lower_to_core ~span:s ~target_var true_branch in
-      let* fb = lower_to_core ~span:s ~target_var false_branch in
-      Ok
-        (Core_ir.make_expr ~span:s
-           (Core_ir.If { cond = target_node; then_branch = tb; else_branch = fb }))
-  | SwitchLit { cases; default; span = s; _ } ->
-      let* default_expr =
-        match default with
-        | Some d -> lower_to_core ~span:s ~target_var d
-        | None -> Ok (Core_ir.make_expr ~span:s (Core_ir.Lit (Ast.Int (-1))))
-      in
-      List.fold_right
-        (fun (lit, subtree) acc_res ->
-          let* acc = acc_res in
-          let* sub_expr = lower_to_core ~span:s ~target_var subtree in
-          let lit_node = Core_ir.make_expr ~span:s (Core_ir.Lit lit) in
-          let eq_cond =
-            Core_ir.make_expr ~span:s
-              (Core_ir.PrimOp { op = Core_ir.Eq; args = [ target_node; lit_node ] })
-          in
-          Ok
-            (Core_ir.make_expr ~span:s
-               (Core_ir.If { cond = eq_cond; then_branch = sub_expr; else_branch = acc })))
-        cases (Ok default_expr)
+      List.fold_left
+        (fun acc_res (vname, p) ->
+          let* acc_body = acc_res in
+          match p with
+          | Here ->
+              Ok
+                (Core_ir.make_expr ~span:act.span
+                   (Core_ir.Let
+                      {
+                        name = vname;
+                        is_rec = false;
+                        value = target_node;
+                        body = acc_body;
+                      }))
+          | _ ->
+              Error
+                Ast.
+                  {
+                    code = Some Error_code.E0002_internal_error;
+                    span = act.span;
+                    message =
+                      Printf.sprintf
+                        "Core IR lowering does not support non-root binding path '%s' \
+                         for variable '%s'"
+                        (path_to_string p) vname;
+                  })
+        (Ok act.body) act.bindings
+  | SwitchBool { target; true_branch; false_branch; span = s } ->
+      if target <> Here then
+        Error
+          Ast.
+            {
+              code = Some Error_code.E0002_internal_error;
+              span = s;
+              message =
+                Printf.sprintf
+                  "Core IR lowering does not support non-root switch target '%s'"
+                  (path_to_string target);
+            }
+      else
+        let* tb = lower_to_core ~span:s ~target_var true_branch in
+        let* fb = lower_to_core ~span:s ~target_var false_branch in
+        Ok
+          (Core_ir.make_expr ~span:s
+             (Core_ir.If { cond = target_node; then_branch = tb; else_branch = fb }))
+  | SwitchLit { target; cases; default; span = s } ->
+      if target <> Here then
+        Error
+          Ast.
+            {
+              code = Some Error_code.E0002_internal_error;
+              span = s;
+              message =
+                Printf.sprintf
+                  "Core IR lowering does not support non-root switch target '%s'"
+                  (path_to_string target);
+            }
+      else
+        let* default_expr =
+          match default with
+          | Some d -> lower_to_core ~span:s ~target_var d
+          | None ->
+              Error
+                Ast.
+                  {
+                    code = Some Error_code.E3001_non_exhaustive_match;
+                    span = s;
+                    message =
+                      "Missing default case in literal switch during Core IR lowering";
+                  }
+        in
+        List.fold_right
+          (fun (lit, subtree) acc_res ->
+            let* acc = acc_res in
+            let* sub_expr = lower_to_core ~span:s ~target_var subtree in
+            let lit_node = Core_ir.make_expr ~span:s (Core_ir.Lit lit) in
+            let eq_cond =
+              Core_ir.make_expr ~span:s
+                (Core_ir.PrimOp { op = Core_ir.Eq; args = [ target_node; lit_node ] })
+            in
+            Ok
+              (Core_ir.make_expr ~span:s
+                 (Core_ir.If { cond = eq_cond; then_branch = sub_expr; else_branch = acc })))
+          cases (Ok default_expr)
   | Guard { bindings; condition; then_tree; else_tree } ->
       let* tb = lower_to_core ~span ~target_var then_tree in
       let* fb = lower_to_core ~span ~target_var else_tree in
-      let wrapped_cond =
+      let* wrapped_cond =
         List.fold_left
-          (fun acc (vname, p) ->
-            if String.equal (path_to_string p) "$" then
-              Core_ir.make_expr ~span:condition.span
-                (Core_ir.Let
-                   { name = vname; is_rec = false; value = target_node; body = acc })
-            else acc)
-          condition bindings
+          (fun acc_res (vname, p) ->
+            let* acc = acc_res in
+            match p with
+            | Here ->
+                Ok
+                  (Core_ir.make_expr ~span:condition.span
+                     (Core_ir.Let
+                        { name = vname; is_rec = false; value = target_node; body = acc }))
+            | _ ->
+                Error
+                  Ast.
+                    {
+                      code = Some Error_code.E0002_internal_error;
+                      span = condition.span;
+                      message =
+                        Printf.sprintf
+                          "Core IR lowering does not support non-root binding path '%s' \
+                           for variable '%s'"
+                          (path_to_string p) vname;
+                    })
+          (Ok condition) bindings
       in
       Ok
         (Core_ir.make_expr ~span
            (Core_ir.If { cond = wrapped_cond; then_branch = tb; else_branch = fb }))
-  | SwitchConstructor _ | Failure _ ->
-      Ok (Core_ir.make_expr ~span (Core_ir.Lit (Ast.Int 0)))
+  | SwitchConstructor { span = s; _ } ->
+      Error
+        Ast.
+          {
+            code = Some Error_code.E0002_internal_error;
+            span = s;
+            message = "Constructor switches cannot be lowered directly to Core IR";
+          }
+  | Failure { span = s } ->
+      Error
+        Ast.
+          {
+            code = Some Error_code.E3001_non_exhaustive_match;
+            span = s;
+            message = "Non-exhaustive pattern match reached in Core IR lowering";
+          }
