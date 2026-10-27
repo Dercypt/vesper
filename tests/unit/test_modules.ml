@@ -449,6 +449,150 @@ let test_fixture_bad_interface () =
          Error_code.equal d.code Error_code.E4003_interface_mismatch)
        diags)
 
+let test_val_def_annot () =
+  (* 1. Literal with matching annot *)
+  let val_x =
+    make_val_def ~span:test_span ~name:"x" ~annot:Types.TyInt
+      { Ast.span = test_span; desc = Ast.Lit (Ast.Int 42) }
+  in
+  let unit_ok =
+    make_unit ~span:test_span ~name:"AnnotOk" ~file_path:"annot_ok.vesper"
+      (Implementation (make_mod_struct ~span:test_span [ ModVal val_x ]))
+  in
+  let res_ok = Module_check.check_module unit_ok in
+  Alcotest.(check bool) "Matching annotation passes" true (Result.is_ok res_ok);
+  let checked_mod = Result.get_ok res_ok in
+  let entry = Option.get (Namespace.lookup_val_direct "x" checked_mod.namespace) in
+  Alcotest.(check string)
+    "Annotated type preserved" "int"
+    (Types.to_string (match entry.scheme with Types.Forall (_, ty) -> ty));
+
+  (* 2. Literal with conflicting annot *)
+  let val_bad =
+    make_val_def ~span:test_span ~name:"y" ~annot:Types.TyBool
+      { Ast.span = test_span; desc = Ast.Lit (Ast.Int 42) }
+  in
+  let unit_bad =
+    make_unit ~span:test_span ~name:"AnnotBad" ~file_path:"annot_bad.vesper"
+      (Implementation (make_mod_struct ~span:test_span [ ModVal val_bad ]))
+  in
+  let res_bad = Module_check.check_module unit_bad in
+  Alcotest.(check bool) "Conflicting annotation fails" true (Result.is_error res_bad);
+  let diags = Result.get_error res_bad in
+  let d0 = List.hd diags in
+  Alcotest.(check bool)
+    "E2001 emitted for annot mismatch" true
+    (Error_code.equal d0.Diagnostic.code Error_code.E2001_type_error);
+
+  (* 3. Function with args and matching annot *)
+  let add_expr =
+    {
+      Ast.span = test_span;
+      desc =
+        Ast.Binary
+          {
+            op = Ast.Add;
+            lhs = { Ast.span = test_span; desc = Ast.Var "a" };
+            rhs = { Ast.span = test_span; desc = Ast.Var "b" };
+          };
+    }
+  in
+  let add_annot = Types.TyArrow (Types.TyInt, Types.TyArrow (Types.TyInt, Types.TyInt)) in
+  let val_add =
+    make_val_def ~span:test_span ~name:"add" ~args:[ "a"; "b" ] ~annot:add_annot add_expr
+  in
+  let unit_add =
+    make_unit ~span:test_span ~name:"AnnotAdd" ~file_path:"annot_add.vesper"
+      (Implementation (make_mod_struct ~span:test_span [ ModVal val_add ]))
+  in
+  let res_add = Module_check.check_module unit_add in
+  Alcotest.(check bool) "Annotated function passes" true (Result.is_ok res_add);
+
+  (* 4. Function with args and conflicting annot *)
+  let bad_add_annot =
+    Types.TyArrow (Types.TyInt, Types.TyArrow (Types.TyInt, Types.TyBool))
+  in
+  let val_bad_add =
+    make_val_def ~span:test_span ~name:"add" ~args:[ "a"; "b" ] ~annot:bad_add_annot
+      add_expr
+  in
+  let unit_bad_add =
+    make_unit ~span:test_span ~name:"AnnotBadAdd" ~file_path:"annot_bad_add.vesper"
+      (Implementation (make_mod_struct ~span:test_span [ ModVal val_bad_add ]))
+  in
+  let res_bad_add = Module_check.check_module unit_bad_add in
+  Alcotest.(check bool)
+    "Conflicting function annotation fails" true (Result.is_error res_bad_add);
+
+  (* 5. Recursive function with matching annot *)
+  let fact_expr =
+    {
+      Ast.span = test_span;
+      desc =
+        Ast.If
+          {
+            cond =
+              {
+                Ast.span = test_span;
+                desc =
+                  Ast.Binary
+                    {
+                      op = Ast.Eq;
+                      lhs = { Ast.span = test_span; desc = Ast.Var "n" };
+                      rhs = { Ast.span = test_span; desc = Ast.Lit (Ast.Int 0) };
+                    };
+              };
+            then_branch = { Ast.span = test_span; desc = Ast.Lit (Ast.Int 1) };
+            else_branch =
+              {
+                Ast.span = test_span;
+                desc =
+                  Ast.Binary
+                    {
+                      op = Ast.Mul;
+                      lhs = { Ast.span = test_span; desc = Ast.Var "n" };
+                      rhs =
+                        {
+                          Ast.span = test_span;
+                          desc =
+                            Ast.App
+                              {
+                                fn = { Ast.span = test_span; desc = Ast.Var "fact" };
+                                arg =
+                                  {
+                                    Ast.span = test_span;
+                                    desc =
+                                      Ast.Binary
+                                        {
+                                          op = Ast.Sub;
+                                          lhs =
+                                            { Ast.span = test_span; desc = Ast.Var "n" };
+                                          rhs =
+                                            {
+                                              Ast.span = test_span;
+                                              desc = Ast.Lit (Ast.Int 1);
+                                            };
+                                        };
+                                  };
+                              };
+                        };
+                    };
+              };
+          };
+    }
+  in
+  let fact_annot = Types.TyArrow (Types.TyInt, Types.TyInt) in
+  let val_fact =
+    make_val_def ~span:test_span ~name:"fact" ~is_rec:true ~args:[ "n" ] ~annot:fact_annot
+      fact_expr
+  in
+  let unit_fact =
+    make_unit ~span:test_span ~name:"AnnotFact" ~file_path:"annot_fact.vesper"
+      (Implementation (make_mod_struct ~span:test_span [ ModVal val_fact ]))
+  in
+  let res_fact = Module_check.check_module unit_fact in
+  Alcotest.(check bool) "Annotated recursive function passes" true (Result.is_ok res_fact)
+
 let () =
   Alcotest.run "Vesper Module System Unit Tests"
     [
@@ -474,6 +618,8 @@ let () =
         [
           Alcotest.test_case "Interface conformance checking" `Quick
             test_interface_conformance;
+          Alcotest.test_case "Module value definition annotations" `Quick
+            test_val_def_annot;
           Alcotest.test_case "Multi-module project compilation" `Quick
             test_fixtures_multi_module_project;
           Alcotest.test_case "Cycle detection on fixtures" `Quick

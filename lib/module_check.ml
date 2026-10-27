@@ -195,34 +195,81 @@ let check_module ?(project_env = Namespace.empty) ?interface
                   current_ns)
           | ModVal val_def -> (
               let type_env = Namespace.to_type_env current_ns in
-              let decl : Ast.decl =
-                {
-                  span = val_def.span;
-                  decl_desc =
-                    Ast.LetDecl
+              if not (Ast.span_is_valid val_def.span) then (
+                let diag =
+                  Diagnostic.error ~code:Error_code.E1007_invalid_span ~span:val_def.span
+                    (Printf.sprintf "Declaration violates Law 3 (invalid span): %s"
+                       (Ast.span_to_string val_def.span))
+                in
+                diags := diag :: !diags;
+                current_ns)
+              else
+                match val_def.annot with
+                | Some annot_ty -> (
+                    let value_expr =
+                      if val_def.args = [] then val_def.value
+                      else
+                        {
+                          Ast.span = val_def.value.span;
+                          desc = Ast.Fun { params = val_def.args; body = val_def.value };
+                        }
+                    in
+                    let check_env =
+                      if val_def.is_rec then
+                        Type_env.extend val_def.name
+                          (Types.Forall ([], annot_ty))
+                          type_env
+                      else type_env
+                    in
+                    match Typecheck.check check_env value_expr annot_ty with
+                    | Error err ->
+                        let diag =
+                          Diagnostic.of_ast_error
+                            ~code:
+                              (Option.value err.Ast.code
+                                 ~default:Error_code.E2001_type_error)
+                            err
+                        in
+                        diags := diag :: !diags;
+                        current_ns
+                    | Ok subst ->
+                        let final_ty = Types.apply subst annot_ty in
+                        let scheme = Type_env.generalize type_env final_ty in
+                        Namespace.bind_val ~name:val_def.name ~scheme ~span:val_def.span
+                          current_ns)
+                | None -> (
+                    let decl : Ast.decl =
                       {
-                        name = val_def.name;
-                        is_rec = val_def.is_rec;
-                        args = val_def.args;
-                        value = val_def.value;
-                      };
-                }
-              in
-              match Typecheck.typecheck_decl ~env:type_env decl with
-              | Error err ->
-                  let diag =
-                    Diagnostic.of_ast_error ~code:Error_code.E2001_type_error err
-                  in
-                  diags := diag :: !diags;
-                  current_ns
-              | Ok (_, extended_env) ->
-                  let scheme =
-                    match Type_env.lookup val_def.name extended_env with
-                    | Some s -> s
-                    | None -> Types.Forall ([], Types.TyUnit)
-                  in
-                  Namespace.bind_val ~name:val_def.name ~scheme ~span:val_def.span
-                    current_ns)
+                        span = val_def.span;
+                        decl_desc =
+                          Ast.LetDecl
+                            {
+                              name = val_def.name;
+                              is_rec = val_def.is_rec;
+                              args = val_def.args;
+                              value = val_def.value;
+                            };
+                      }
+                    in
+                    match Typecheck.typecheck_decl ~env:type_env decl with
+                    | Error err ->
+                        let diag =
+                          Diagnostic.of_ast_error
+                            ~code:
+                              (Option.value err.Ast.code
+                                 ~default:Error_code.E2001_type_error)
+                            err
+                        in
+                        diags := diag :: !diags;
+                        current_ns
+                    | Ok (_, extended_env) ->
+                        let scheme =
+                          match Type_env.lookup val_def.name extended_env with
+                          | Some s -> s
+                          | None -> Types.Forall ([], Types.TyUnit)
+                        in
+                        Namespace.bind_val ~name:val_def.name ~scheme ~span:val_def.span
+                          current_ns))
           | ModType type_def ->
               Namespace.bind_type ~name:type_def.name ~params:type_def.params
                 ~manifest:type_def.ty ~span:type_def.span current_ns
