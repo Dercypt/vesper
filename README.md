@@ -33,14 +33,6 @@ dune build
 > [!TIP]
 > If your shell reports `command not found: dune`, the opam environment has not been activated in your current terminal session. Run `eval $(opam env)` to activate it, or add `eval $(opam env)` to your shell configuration (e.g., `~/.zshrc` or `~/.bashrc`) so that OCaml tools are permanently available in your `PATH`.
 
-## Testing & Verification
-
-Run the verification harness to validate formatting, compilation, unit tests, and domain invariant laws:
-
-```bash
-./verify.sh
-```
-
 ## Usage
 
 Execute a Vesper program using Dune:
