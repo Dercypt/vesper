@@ -107,6 +107,8 @@ Inline expressions (-e) parse and validate, while raw files require subcommands:
   1
   $ vesper -e '2 + 2;'
   4
+  $ printf '10\n20\n' | vesper -e 'let a = read_int ""; let b = read_int ""; a + b;'
+  30
   $ vesper -e '1 + true;'
   error[E2001]: Type mismatch: expected 'int', but got 'bool'
     --> <cli>:1:0-1:8

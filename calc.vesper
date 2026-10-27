@@ -1,0 +1,30 @@
+// Interactive Calculator in Pure Vesper
+// Demonstrates functions, currying, recursion, conditionals, and native I/O
+
+let add a b = a + b;
+let sub a b = a - b;
+let mul a b = a * b;
+let div a b = if b == 0 then 0 else a / b;
+
+let rec pow b e =
+  if e <= 0 then 1
+  else b * pow b (e - 1);
+
+let rec fact n =
+  if n <= 1 then 1
+  else n * fact (n - 1);
+
+let a = read_int "Enter first number: ";
+let op = read_int "Select operation (1: add, 2: sub, 3: mul, 4: div, 5: pow, 6: fact): ";
+let b = if op == 6 then 0 else read_int "Enter second number: ";
+
+let result =
+  if op == 1 then add a b
+  else if op == 2 then sub a b
+  else if op == 3 then mul a b
+  else if op == 4 then div a b
+  else if op == 5 then pow a b
+  else if op == 6 then fact a
+  else 0;
+
+result;
