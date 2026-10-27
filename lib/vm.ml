@@ -377,6 +377,11 @@ let run_vm_outcome ?(fuel = default_fuel) ?(env = []) (main_chunk : Bytecode.chu
                   push arg;
                   dispatch ()
               | Error err -> Error (Diagnostic.of_ast_error err))
+          | Value.VNative (_name, f) ->
+              let* res = f arg in
+              push res;
+              incr ip;
+              dispatch ()
           | other ->
               Error
                 (Diagnostic.error ~code:Error_code.E2001_type_error ~span

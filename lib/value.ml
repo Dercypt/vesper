@@ -14,6 +14,7 @@ and t =
   | VString of string
   | VClosure of { param : string; body : Core_ir.expr; env : env }
   | VBytecodeClosure of { chunk : chunk; env : env }
+  | VNative of string * (t -> (t, Diagnostic.t) result)
   | VUnit
   | VConstruct of string * t list
   | VRecord of (string * t) list
@@ -35,12 +36,13 @@ let record_field name = function
 
 let closure ~param ~body ~env = VClosure { param; body; env }
 let bytecode_closure ~chunk ~env = VBytecodeClosure { chunk; env }
+let native name f = VNative (name, f)
 
 let type_of = function
   | VInt _ -> "int"
   | VBool _ -> "bool"
   | VString _ -> "string"
-  | VClosure _ | VBytecodeClosure _ -> "function"
+  | VClosure _ | VBytecodeClosure _ | VNative _ -> "function"
   | VUnit -> "unit"
   | VConstruct (name, _) -> name
   | VRecord _ -> "record"
@@ -53,6 +55,7 @@ let rec pp fmt = function
   | VBytecodeClosure { chunk; _ } ->
       let param = match chunk.param with Some p -> p | None -> "_" in
       Format.fprintf fmt "<fun %s>" param
+  | VNative (name, _) -> Format.fprintf fmt "<native %s>" name
   | VUnit -> Format.fprintf fmt "()"
   | VConstruct (c, []) -> Format.fprintf fmt "%s" c
   | VConstruct (c, args) ->
@@ -102,6 +105,7 @@ and equal v1 v2 =
       | VInt a, VInt b -> a = b
       | VBool a, VBool b -> a = b
       | VString a, VString b -> String.equal a b
+      | VNative (n1, _), VNative (n2, _) -> String.equal n1 n2
       | VUnit, VUnit -> true
       | VConstruct (c1, args1), VConstruct (c2, args2) ->
           String.equal c1 c2 && List.equal (eq_val visited) args1 args2
