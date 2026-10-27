@@ -130,6 +130,43 @@ type compile_row = {
   body : Core_ir.expr;
 }
 
+let rec pat_is_ctor_or_lit (p : Pattern.pattern) : bool =
+  match p.desc with
+  | Pattern.PLit _ | Pattern.PConstructor _ -> true
+  | Pattern.PAlias (inner, _) -> pat_is_ctor_or_lit inner
+  | Pattern.POr (p1, p2) -> pat_is_ctor_or_lit p1 || pat_is_ctor_or_lit p2
+  | _ -> false
+
+let has_ctor_or_lit_in_col1 (rows : compile_row list) : bool =
+  List.exists
+    (fun r -> match r.pats with (_, p) :: _ -> pat_is_ctor_or_lit p | [] -> false)
+    rows
+
+let is_specialized_pat (p : Pattern.pattern) : bool =
+  match p.desc with
+  | Pattern.PLit _ | Pattern.PConstructor _ | Pattern.PTuple _ | Pattern.PRecord _ -> true
+  | Pattern.PAlias _ | Pattern.POr _ -> true
+  | Pattern.PWildcard | Pattern.PVar _ -> false
+
+let find_constructor_col (pats : (path * Pattern.pattern) list) : int option =
+  let rec aux idx = function
+    | [] -> None
+    | (_, p) :: rest ->
+        if idx > 0 && is_specialized_pat p then Some idx else aux (idx + 1) rest
+  in
+  aux 0 pats
+
+let swap_cols i (r : compile_row) : compile_row =
+  let pats = r.pats in
+  if i <= 0 || i >= List.length pats then r
+  else
+    let col0 = List.nth pats 0 in
+    let coli = List.nth pats i in
+    let new_pats =
+      List.mapi (fun idx c -> if idx = 0 then coli else if idx = i then col0 else c) pats
+    in
+    { r with pats = new_pats }
+
 let rec decompose_matrix (sig_env : Pattern.signature_env) (span : Ast.span)
     (rows : compile_row list) : (decision_tree, Ast.error) result =
   match rows with
@@ -160,42 +197,55 @@ let rec decompose_matrix (sig_env : Pattern.signature_env) (span : Ast.span)
           | None -> Ok (Leaf act))
       | (curr_path, first_pat) :: _ -> (
           match first_pat.desc with
-          | Pattern.PWildcard ->
-              let next_rows =
-                List.map
-                  (fun r ->
-                    match r.pats with
-                    | (_, p) :: rest_pats -> (
-                        match p.desc with
-                        | Pattern.PVar name ->
-                            {
-                              r with
-                              pats = rest_pats;
-                              bindings = (name, curr_path) :: r.bindings;
-                            }
-                        | _ -> { r with pats = rest_pats })
-                    | [] -> r)
-                  rows
-              in
-              decompose_matrix sig_env span next_rows
-          | Pattern.PVar _ ->
-              let next_rows =
-                List.map
-                  (fun r ->
-                    match r.pats with
-                    | (_, p) :: rest_pats -> (
-                        match p.desc with
-                        | Pattern.PVar v ->
-                            {
-                              r with
-                              pats = rest_pats;
-                              bindings = (v, curr_path) :: r.bindings;
-                            }
-                        | _ -> { r with pats = rest_pats })
-                    | [] -> r)
-                  rows
-              in
-              decompose_matrix sig_env span next_rows
+          | Pattern.PWildcard | Pattern.PVar _ ->
+              if has_ctor_or_lit_in_col1 (List.tl rows) then
+                match find_constructor_col first_row.pats with
+                | Some col_idx ->
+                    let swapped_rows = List.map (swap_cols col_idx) rows in
+                    decompose_matrix sig_env span swapped_rows
+                | None -> (
+                    let bindings =
+                      List.fold_left
+                        (fun acc (p, { Pattern.desc; _ }) ->
+                          match desc with
+                          | Pattern.PVar name -> (name, p) :: acc
+                          | _ -> acc)
+                        first_row.bindings first_row.pats
+                    in
+                    let act =
+                      {
+                        action_id = first_row.action_id;
+                        span = first_row.span;
+                        bindings;
+                        guard = first_row.guard;
+                        body = first_row.body;
+                      }
+                    in
+                    match first_row.guard with
+                    | Some g ->
+                        let* else_tree = decompose_matrix sig_env span (List.tl rows) in
+                        Ok
+                          (Guard
+                             { bindings; condition = g; then_tree = Leaf act; else_tree })
+                    | None -> Ok (Leaf act))
+              else
+                let next_rows =
+                  List.map
+                    (fun r ->
+                      match r.pats with
+                      | (_, p) :: rest_pats -> (
+                          match p.desc with
+                          | Pattern.PVar name ->
+                              {
+                                r with
+                                pats = rest_pats;
+                                bindings = (name, curr_path) :: r.bindings;
+                              }
+                          | _ -> { r with pats = rest_pats })
+                      | [] -> r)
+                    rows
+                in
+                decompose_matrix sig_env span next_rows
           | Pattern.PAlias (inner, name) ->
               let updated_first =
                 {
