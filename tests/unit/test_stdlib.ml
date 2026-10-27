@@ -416,6 +416,80 @@ let test_prelude () =
   | Ok (Value.VInt 55) -> ()
   | _ -> Alcotest.fail "Expected fib 10 = 55"
 
+let test_io_primitives () =
+  let type_env = Prelude.default_type_env () in
+  Alcotest.(check bool) "type_env has read_line" true (Type_env.mem "read_line" type_env);
+  Alcotest.(check bool) "type_env has read_int" true (Type_env.mem "read_int" type_env);
+  Alcotest.(check bool) "type_env has print" true (Type_env.mem "print" type_env);
+
+  let vm_env = Prelude.default_vm_env () in
+  Alcotest.(check bool) "vm_env has read_line" true (Env.mem "read_line" vm_env);
+  Alcotest.(check bool) "vm_env has read_int" true (Env.mem "read_int" vm_env);
+  Alcotest.(check bool) "vm_env has print" true (Env.mem "print" vm_env);
+
+  (* Test with redirected stdin *)
+  let r, w = Unix.pipe () in
+  let orig_stdin = Unix.dup Unix.stdin in
+  Unix.dup2 r Unix.stdin;
+  Unix.close r;
+
+  let oc = Unix.out_channel_of_descr w in
+  output_string oc "42\nhello world\ninvalid_int\n";
+  flush oc;
+  close_out oc;
+
+  let read_int_val = Env.lookup "read_int" vm_env in
+  (match read_int_val with
+  | Some (Value.VNative (_, f)) -> (
+      match f (Value.VString "") with
+      | Ok (Value.VInt 42) -> ()
+      | _ -> Alcotest.fail "Expected read_int to return 42")
+  | _ -> Alcotest.fail "Expected read_int native function");
+
+  let read_line_val = Env.lookup "read_line" vm_env in
+  (match read_line_val with
+  | Some (Value.VNative (_, f)) -> (
+      match f (Value.VString "") with
+      | Ok (Value.VString "hello world") -> ()
+      | _ -> Alcotest.fail "Expected read_line to return hello world")
+  | _ -> Alcotest.fail "Expected read_line native function");
+
+  (* Test invalid int returns 0 safely without crashing (Law 1) *)
+  (match read_int_val with
+  | Some (Value.VNative (_, f)) -> (
+      match f (Value.VString "") with
+      | Ok (Value.VInt 0) -> ()
+      | _ -> Alcotest.fail "Expected read_int on non-integer to return 0")
+  | _ -> Alcotest.fail "Expected read_int native function");
+
+  (* Test EOF returns safe defaults (Law 1) *)
+  (match read_line_val with
+  | Some (Value.VNative (_, f)) -> (
+      match f (Value.VString "") with
+      | Ok (Value.VString "") -> ()
+      | _ -> Alcotest.fail "Expected read_line on EOF to return empty string")
+  | _ -> Alcotest.fail "Expected read_line native function");
+
+  (match read_int_val with
+  | Some (Value.VNative (_, f)) -> (
+      match f (Value.VString "") with
+      | Ok (Value.VInt 0) -> ()
+      | _ -> Alcotest.fail "Expected read_int on EOF to return 0")
+  | _ -> Alcotest.fail "Expected read_int native function");
+
+  (* Restore stdin *)
+  Unix.dup2 orig_stdin Unix.stdin;
+  Unix.close orig_stdin;
+
+  (* Test print primitive *)
+  let print_val = Env.lookup "print" vm_env in
+  match print_val with
+  | Some (Value.VNative (_, f)) -> (
+      match f (Value.VString "") with
+      | Ok Value.VUnit -> ()
+      | _ -> Alcotest.fail "Expected print to return unit")
+  | _ -> Alcotest.fail "Expected print native function"
+
 let () =
   let open Alcotest in
   run "Vesper Standard Library Unit Tests"
@@ -433,5 +507,8 @@ let () =
             test_effect_runtime_stdin_cursor;
         ] );
       ( "Prelude",
-        [ test_case "Standard prelude ingestion and execution" `Quick test_prelude ] );
+        [
+          test_case "Standard prelude ingestion and execution" `Quick test_prelude;
+          test_case "I/O primitives and total isolation" `Quick test_io_primitives;
+        ] );
     ]

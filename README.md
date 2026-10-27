@@ -35,10 +35,19 @@ dune build
 
 ## Usage
 
-Execute a Vesper program using Dune:
+Execute an interactive Vesper calculator where the user inputs numbers and operations:
 
 ```bash
-dune exec -- vesper run hello.vesper
+dune exec -- vesper run calc.vesper
+```
+
+Example interactive session:
+
+```text
+Enter first number: 15
+Select operation (1: add, 2: sub, 3: mul, 4: div, 5: pow, 6: fact): 1
+Enter second number: 27
+42
 ```
 
 ## License

@@ -17,6 +17,7 @@ and t =
   | VString of string
   | VClosure of { param : string; body : Core_ir.expr; env : env }
   | VBytecodeClosure of { chunk : chunk; env : env }
+  | VNative of string * (t -> (t, Diagnostic.t) result)
   | VUnit
   | VConstruct of string * t list
   | VRecord of (string * t) list
@@ -56,6 +57,9 @@ val closure : param:string -> body:Core_ir.expr -> env:env -> t
 
 val bytecode_closure : chunk:chunk -> env:env -> t
 (** Constructs a bytecode closure value capturing its lexical environment. *)
+
+val native : string -> (t -> (t, Diagnostic.t) result) -> t
+(** Constructs a native host function value. *)
 
 val type_of : t -> string
 (** Returns human-readable runtime type name of a value (e.g. "int", "bool", "function").

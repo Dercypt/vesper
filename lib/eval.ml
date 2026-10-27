@@ -141,6 +141,10 @@ let rec eval_step (env : Env.t) (fuel : int) (steps : int) (e : Core_ir.expr) :
               { chunk = { param = Some param; body = Some body; _ }; env = c_env } ->
               let call_env = Env.extend param arg_val c_env in
               eval_step call_env (fuel_arg - 1) (steps_arg + 1) body
+          | Value.VNative (_name, f) -> (
+              match f arg_val with
+              | Ok res -> Ok (res, steps_arg + 1, fuel_arg - 1)
+              | Error diag -> err ~code:diag.code fn.span diag.message)
           | other ->
               err fn.span
                 (Printf.sprintf "Type error: expected a function, got %s"
