@@ -7,5 +7,6 @@ val occurs_check : int -> Types.t -> bool
 
 val unify : span:Ast.span -> Types.t -> Types.t -> (Types.subst, Ast.error) result
 (** Computes the most general unifier (MGU) of two types [t1] and [t2] as a substitution.
-    Returns an informative [Ast.error] with source span provenance if unification fails
-    due to type mismatch or an occurs check violation. *)
+    Type variables with negative IDs are treated as rigid skolem constants and cannot be
+    instantiated to concrete types. Returns an informative [Ast.error] with source span
+    provenance if unification fails due to type mismatch or an occurs check violation. *)

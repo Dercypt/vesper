@@ -22,8 +22,10 @@ type checked_project = {
 val check_interface_conformance :
   impl_ns:Namespace.t -> interface:Mod_ast.mod_sig -> (unit, Diagnostic.t list) result
 (** Checks that an implementation namespace satisfies all declarations in an interface
-    contract. Returns descriptive diagnostics with error code E4003 upon missing items or
-    type mismatches. *)
+    contract. Skolemizes interface type variables into rigid variables to ensure
+    implementations cannot satisfy polymorphic interface specifications with less general
+    (monomorphic) types. Returns descriptive diagnostics with error code E4003 upon
+    missing items or type mismatches. *)
 
 val check_module :
   ?project_env:Namespace.t ->
@@ -31,7 +33,8 @@ val check_module :
   Mod_ast.compilation_unit ->
   (checked_module, Diagnostic.t list) result
 (** Checks a single compilation unit against optional project dependencies and interface
-    contract. *)
+    contract. Type annotations on value definitions ([val_def.annot]) are strictly
+    verified via bidirectional type checking. *)
 
 val check_project :
   Mod_ast.compilation_unit list -> (checked_project, Diagnostic.t list) result
