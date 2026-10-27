@@ -421,6 +421,16 @@ let test_fixtures_multi_module_project () =
   let project = Result.get_ok res in
   Alcotest.(check (list string)) "Build order" [ "Math"; "Utils" ] project.build_order;
 
+  let non_existent = Filename.concat fixture_dir "nonexistent.vesper" in
+  let missing_res = Module_check.compile_files [ math_iface; non_existent ] in
+  Alcotest.(check bool)
+    "Missing file in compile_files fails" true (Result.is_error missing_res);
+  let missing_diags = Result.get_error missing_res in
+  let d0 = List.hd missing_diags in
+  Alcotest.(check bool)
+    "E0001 emitted on missing file in compile_files" true
+    (Error_code.equal d0.Diagnostic.code Error_code.E0001_io_error);
+
   (* Verify Math exports are in root_env *)
   let math_mod = Option.get (Namespace.lookup_module_direct "Math" project.root_env) in
   Alcotest.(check bool)
