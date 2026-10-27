@@ -4,7 +4,7 @@
     explicit capabilities. *)
 
 type io_env = {
-  stdin : in_channel;
+  stdin : string * int ref;
   stdout : Buffer.t;
   stderr : Buffer.t;
   fs_root : string option;
@@ -22,8 +22,8 @@ val create_env :
   ?vfs:(string * string) list ->
   unit ->
   io_env
-(** Constructs an isolated I/O environment. If [stdin_str] is provided, creates a mock
-    input channel reading from the string. If [vfs] is provided, seeds the virtual
+(** Constructs an isolated I/O environment. If [stdin_str] is provided, creates an
+    in-memory cursor reading from the string. If [vfs] is provided, seeds the virtual
     filesystem. *)
 
 val print_string : io_env -> string -> unit
@@ -51,11 +51,11 @@ val clear_buffers : io_env -> unit
 (** Resets both stdout and stderr buffers to empty. *)
 
 val read_line : ?span:Ast.span -> io_env -> (string, Diagnostic.t) result
-(** Reads a single line from the environment's stdin channel without throwing host
+(** Reads a single line from the environment's stdin cursor without throwing host
     exceptions. *)
 
 val read_all : ?span:Ast.span -> io_env -> (string, Diagnostic.t) result
-(** Reads all remaining bytes from the environment's stdin channel. *)
+(** Reads all remaining bytes from the environment's stdin cursor. *)
 
 val sanitize_path :
   ?span:Ast.span -> root:string option -> string -> (string, Diagnostic.t) result

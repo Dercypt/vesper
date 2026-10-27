@@ -1,5 +1,5 @@
 type io_env = {
-  stdin : in_channel;
+  stdin : string * int ref;
   stdout : Buffer.t;
   stderr : Buffer.t;
   fs_root : string option;
@@ -10,26 +10,18 @@ let create_env ?stdin ?stdin_str ?(stdout = Buffer.create 256)
     ?(stderr = Buffer.create 256) ?fs_root ?(vfs = []) () =
   let vfs_tbl = Hashtbl.create 16 in
   List.iter (fun (k, v) -> Hashtbl.replace vfs_tbl k v) vfs;
-  let in_ch =
+  let in_cursor =
     match (stdin, stdin_str) with
-    | Some ic, _ -> ic
-    | None, Some s ->
-        let temp_path, oc = Filename.open_temp_file "vesper_in_" ".tmp" in
-        output_string oc s;
-        close_out oc;
-        let ic = open_in_bin temp_path in
-        (try Sys.remove temp_path with _ -> ());
-        ic
-    | None, None -> (
-        try open_in "/dev/null"
-        with _ ->
-          let temp_path, oc = Filename.open_temp_file "vesper_empty_" ".tmp" in
-          close_out oc;
-          let ic = open_in_bin temp_path in
-          (try Sys.remove temp_path with _ -> ());
-          ic)
+    | Some ic, _ ->
+        let s =
+          try Fun.protect ~finally:(fun () -> ()) (fun () -> In_channel.input_all ic)
+          with _ -> ""
+        in
+        (s, ref 0)
+    | None, Some s -> (s, ref 0)
+    | None, None -> ("", ref 0)
   in
-  { stdin = in_ch; stdout; stderr; fs_root; vfs = vfs_tbl }
+  { stdin = in_cursor; stdout; stderr; fs_root; vfs = vfs_tbl }
 
 let print_string env s = Buffer.add_string env.stdout s
 
@@ -52,41 +44,38 @@ let clear_buffers env =
   Buffer.clear env.stderr
 
 let read_line ?(span = Ast.dummy_span) env =
-  try Ok (input_line env.stdin) with
-  | End_of_file ->
-      Error
-        (Diagnostic.error ~code:Error_code.E0001_io_error ~span "End of file on stdin")
-  | Sys_error msg ->
-      Error
-        (Diagnostic.error ~code:Error_code.E0001_io_error ~span
-           (Printf.sprintf "I/O error reading stdin: %s" msg))
-  | exn ->
-      Error
-        (Diagnostic.error ~code:Error_code.E0001_io_error ~span
-           (Printf.sprintf "Host exception reading stdin: %s" (Printexc.to_string exn)))
+  let str, pos = env.stdin in
+  let len = String.length str in
+  if !pos >= len then
+    Error (Diagnostic.error ~code:Error_code.E0001_io_error ~span "End of file on stdin")
+  else
+    let start = !pos in
+    let rec find_nl i =
+      if i >= len then begin
+        let line = String.sub str start (len - start) in
+        pos := len;
+        Ok line
+      end
+      else if String.get str i = '\n' then (
+        let line_len =
+          if i > start && String.get str (i - 1) = '\r' then i - start - 1 else i - start
+        in
+        let line = String.sub str start line_len in
+        pos := i + 1;
+        Ok line)
+      else find_nl (i + 1)
+    in
+    find_nl start
 
 let read_all ?(span = Ast.dummy_span) env =
-  try
-    let buf = Buffer.create 512 in
-    let chunk = Bytes.create 1024 in
-    let rec loop () =
-      let n = input env.stdin chunk 0 1024 in
-      if n = 0 then Ok (Buffer.contents buf)
-      else begin
-        Buffer.add_subbytes buf chunk 0 n;
-        loop ()
-      end
-    in
-    loop ()
-  with
-  | Sys_error msg ->
-      Error
-        (Diagnostic.error ~code:Error_code.E0001_io_error ~span
-           (Printf.sprintf "I/O error reading stdin: %s" msg))
-  | exn ->
-      Error
-        (Diagnostic.error ~code:Error_code.E0001_io_error ~span
-           (Printf.sprintf "Host exception reading stdin: %s" (Printexc.to_string exn)))
+  ignore span;
+  let str, pos = env.stdin in
+  let len = String.length str in
+  if !pos >= len then Ok ""
+  else
+    let remaining = String.sub str !pos (len - !pos) in
+    pos := len;
+    Ok remaining
 
 let split_path (path : string) : string list =
   let len = String.length path in

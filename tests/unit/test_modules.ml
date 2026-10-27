@@ -9,6 +9,11 @@ let test_span : Ast.span =
   | Ok s -> s
   | Error _ -> Ast.dummy_span
 
+let find_fixture_dir () =
+  if Sys.file_exists "tests/fixtures/modules/math.vesperi" then "tests/fixtures/modules"
+  else if Sys.file_exists "../fixtures/modules/math.vesperi" then "../fixtures/modules"
+  else "../../fixtures/modules"
+
 (** {1 Mini-Goal 7.1: Module AST & Qualified Path Tests} *)
 
 let test_path_operations () =
@@ -112,7 +117,25 @@ let test_import_scanner () =
     Result.get_ok (Dep_graph.scan_imports_from_string ~file:"edge.vesper" edge_code)
   in
   Alcotest.(check int)
-    "Empty module imports ignored without crash" 0 (List.length edge_imports)
+    "Empty module imports ignored without crash" 0 (List.length edge_imports);
+
+  (* Scan imports from file (using safe Driver.read_file) *)
+  let fixture_dir = find_fixture_dir () in
+  let utils_file = Filename.concat fixture_dir "utils.vesper" in
+  let file_imports = Result.get_ok (Dep_graph.scan_imports_from_file utils_file) in
+  let file_mod_names =
+    List.map (fun (i : Dep_graph.import_info) -> i.module_name) file_imports
+  in
+  Alcotest.(check (list string)) "Imports scanned from file" [ "Math" ] file_mod_names;
+
+  (* Non-existent file gracefully returns io_error diagnostic *)
+  let non_existent = Filename.concat fixture_dir "nonexistent_file.vesper" in
+  match Dep_graph.scan_imports_from_file non_existent with
+  | Ok _ -> Alcotest.fail "Expected I/O error for non-existent file"
+  | Error err ->
+      Alcotest.(check bool)
+        "E0001 emitted for missing file" true
+        (err.code = Some Error_code.E0001_io_error)
 
 let test_dep_graph_and_cycles () =
   let g0 = Dep_graph.empty in
@@ -387,11 +410,6 @@ let test_interface_conformance () =
     "Invalid const implementation rejected" true
     (Result.is_error bad_const_conf)
 
-let find_fixture_dir () =
-  if Sys.file_exists "tests/fixtures/modules/math.vesperi" then "tests/fixtures/modules"
-  else if Sys.file_exists "../fixtures/modules/math.vesperi" then "../fixtures/modules"
-  else "../../fixtures/modules"
-
 let test_fixtures_multi_module_project () =
   let fixture_dir = find_fixture_dir () in
   let math_iface = Filename.concat fixture_dir "math.vesperi" in
@@ -402,6 +420,16 @@ let test_fixtures_multi_module_project () =
   Alcotest.(check bool) "Compile multi-module project succeeds" true (Result.is_ok res);
   let project = Result.get_ok res in
   Alcotest.(check (list string)) "Build order" [ "Math"; "Utils" ] project.build_order;
+
+  let non_existent = Filename.concat fixture_dir "nonexistent.vesper" in
+  let missing_res = Module_check.compile_files [ math_iface; non_existent ] in
+  Alcotest.(check bool)
+    "Missing file in compile_files fails" true (Result.is_error missing_res);
+  let missing_diags = Result.get_error missing_res in
+  let d0 = List.hd missing_diags in
+  Alcotest.(check bool)
+    "E0001 emitted on missing file in compile_files" true
+    (Error_code.equal d0.Diagnostic.code Error_code.E0001_io_error);
 
   (* Verify Math exports are in root_env *)
   let math_mod = Option.get (Namespace.lookup_module_direct "Math" project.root_env) in

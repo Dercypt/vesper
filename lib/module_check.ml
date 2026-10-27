@@ -475,40 +475,17 @@ let compile_files (file_paths : string list) : (checked_project, Diagnostic.t li
   let rec parse_all acc = function
     | [] -> Ok (List.rev acc)
     | file :: rest -> (
-        let dummy_span =
-          match
-            Ast.create_span ~file ~start_line:1 ~start_col:1 ~end_line:1 ~end_col:1
-          with
-          | Ok s -> s
-          | Error _ -> Ast.dummy_span
-        in
-        try
-          let ic = open_in file in
-          let len = in_channel_length ic in
-          let content = really_input_string ic len in
-          close_in ic;
-          match Mod_ast.parse_compilation_unit ~file content with
-          | Ok cu -> parse_all (cu :: acc) rest
-          | Error err ->
-              let diag =
-                Diagnostic.error ~code:Error_code.E1008_syntax_error ~span:err.Ast.span
-                  err.Ast.message
-              in
-              Error [ diag ]
-        with
-        | Sys_error msg ->
-            let diag =
-              Diagnostic.error ~code:Error_code.E0001_io_error ~span:dummy_span
-                (Printf.sprintf "I/O error reading file '%s': %s" file msg)
-            in
-            Error [ diag ]
-        | exn ->
-            let diag =
-              Diagnostic.error ~code:Error_code.E0002_internal_error ~span:dummy_span
-                (Printf.sprintf "Unexpected failure reading '%s': %s" file
-                   (Printexc.to_string exn))
-            in
-            Error [ diag ])
+        match Driver.read_file file with
+        | Error diag -> Error [ diag ]
+        | Ok content -> (
+            match Mod_ast.parse_compilation_unit ~file content with
+            | Ok cu -> parse_all (cu :: acc) rest
+            | Error err ->
+                let diag =
+                  Diagnostic.error ~code:Error_code.E1008_syntax_error ~span:err.Ast.span
+                    err.Ast.message
+                in
+                Error [ diag ]))
   in
   match parse_all [] file_paths with
   | Ok units -> check_project units
