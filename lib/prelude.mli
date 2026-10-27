@@ -12,15 +12,18 @@ val prelude_core : unit -> Core_ir.program
 
 val default_type_env : unit -> Type_env.t
 (** Pre-populated typing environment containing signatures and polytypes for standard
-    library prelude functions. *)
+    library prelude functions, including typed I/O primitives
+    ([read_line : string -> string], [read_int : string -> int], and
+    [print : forall 'a. 'a -> unit]). *)
 
 val default_eval_env : unit -> Env.t
 (** Pre-populated runtime evaluation environment containing closure bindings for standard
-    library prelude functions. *)
+    library prelude functions and native host I/O primitives. [read_int] returns
+    structured [E0001_io_error] diagnostics upon non-integer input or EOF under Law 1. *)
 
 val default_vm_env : unit -> Env.t
 (** Pre-populated runtime VM evaluation environment containing compiled bytecode closure
-    bindings for standard library prelude functions. *)
+    bindings for standard library prelude functions and native host I/O primitives. *)
 
 val with_prelude : Ast.program -> Ast.program
 (** Prepends the prelude declaration suite to a user compilation unit. *)
