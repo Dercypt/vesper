@@ -236,6 +236,56 @@ let test_effect_runtime () =
   Alcotest.(check string) "cleared stdout" "" (Effect_runtime.get_stdout env);
   Alcotest.(check string) "cleared stderr" "" (Effect_runtime.get_stderr env)
 
+let test_effect_runtime_stdin_cursor () =
+  (* 1. Default empty stdin *)
+  let env_empty = Effect_runtime.create_env () in
+  (match Effect_runtime.read_line env_empty with
+  | Error diag ->
+      Alcotest.(check bool)
+        "empty env read_line EOF" true
+        (diag.Diagnostic.code = Error_code.E0001_io_error
+        && diag.message = "End of file on stdin")
+  | Ok _ -> Alcotest.fail "Expected EOF on empty env read_line");
+  (match Effect_runtime.read_all env_empty with
+  | Ok s -> Alcotest.(check string) "empty env read_all is empty" "" s
+  | Error diag -> Alcotest.fail diag.Diagnostic.message);
+
+  (* 2. CRLF and trailing line without newline *)
+  let env_crlf = Effect_runtime.create_env ~stdin_str:"line1\r\nline2\nline3" () in
+  (match Effect_runtime.read_line env_crlf with
+  | Ok s -> Alcotest.(check string) "crlf line 1" "line1" s
+  | Error diag -> Alcotest.fail diag.message);
+  (match Effect_runtime.read_line env_crlf with
+  | Ok s -> Alcotest.(check string) "crlf line 2" "line2" s
+  | Error diag -> Alcotest.fail diag.message);
+  (match Effect_runtime.read_line env_crlf with
+  | Ok s -> Alcotest.(check string) "crlf line 3 without nl" "line3" s
+  | Error diag -> Alcotest.fail diag.message);
+  (match Effect_runtime.read_line env_crlf with
+  | Error diag ->
+      Alcotest.(check bool) "crlf EOF" true (diag.code = Error_code.E0001_io_error)
+  | Ok _ -> Alcotest.fail "Expected EOF after line 3");
+
+  (* 3. Interleaved read_line and read_all *)
+  let env_interleaved =
+    Effect_runtime.create_env ~stdin_str:"header\nbody 1\nbody 2\n" ()
+  in
+  (match Effect_runtime.read_line env_interleaved with
+  | Ok s -> Alcotest.(check string) "header line" "header" s
+  | Error diag -> Alcotest.fail diag.message);
+  (match Effect_runtime.read_all env_interleaved with
+  | Ok s -> Alcotest.(check string) "remaining body" "body 1\nbody 2\n" s
+  | Error diag -> Alcotest.fail diag.message);
+  (match Effect_runtime.read_all env_interleaved with
+  | Ok s -> Alcotest.(check string) "subsequent read_all empty" "" s
+  | Error diag -> Alcotest.fail diag.message);
+  match Effect_runtime.read_line env_interleaved with
+  | Error diag ->
+      Alcotest.(check bool)
+        "subsequent read_line EOF" true
+        (diag.code = Error_code.E0001_io_error)
+  | Ok _ -> Alcotest.fail "Expected EOF on subsequent read_line"
+
 let test_prelude () =
   let ast = Prelude.prelude_ast () in
   Alcotest.(check bool) "prelude has decls" true (List.length ast.decls > 0);
@@ -377,8 +427,11 @@ let () =
       ( "Core_option & Result",
         [ test_case "Monadic option and result" `Quick test_core_option_and_result ] );
       ( "Effect_runtime",
-        [ test_case "Isolated I/O, VFS, and security sandbox" `Quick test_effect_runtime ]
-      );
+        [
+          test_case "Isolated I/O, VFS, and security sandbox" `Quick test_effect_runtime;
+          test_case "In-memory stdin cursor lifecycle and edge cases" `Quick
+            test_effect_runtime_stdin_cursor;
+        ] );
       ( "Prelude",
         [ test_case "Standard prelude ingestion and execution" `Quick test_prelude ] );
     ]
