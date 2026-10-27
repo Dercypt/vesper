@@ -327,6 +327,32 @@ let test_compiler_free_var_captures () =
               let cap_name, _ = add_a_chunk.captures.(0) in
               Alcotest.(check string) "captured var name is a" "a" cap_name))
 
+let test_bytecode_closure_equality () =
+  let run_vm_check src expected name =
+    match Parse_facade.parse_string ~file:"<test>" src with
+    | Error diag -> Alcotest.fail diag.message
+    | Ok ast -> (
+        match Compiler.compile ast with
+        | Error err -> Alcotest.fail err.message
+        | Ok chunk -> (
+            match VM.run chunk with
+            | Ok (Value.VBool b) -> Alcotest.(check bool) name expected b
+            | Ok other ->
+                Alcotest.fail
+                  (Printf.sprintf "%s: expected bool %b, got %s" name expected
+                     (Value.to_string other))
+            | Error diag -> Alcotest.fail diag.message))
+  in
+  run_vm_check "let f x = x + 1; f == (fun x -> x + 1);" true "vm closure self eq";
+  run_vm_check "let f x = x + 1; let unused = 0; let g x = x + 1; f == g;" true
+    "vm closure unused binding eq";
+  run_vm_check
+    "let add x y = x + y; let add1 = add 1; let add1_again = add 1; add1 == add1_again;"
+    true "vm curried partial app eq";
+  run_vm_check "let add x y = x + y; let add1 = add 1; let add2 = add 2; add1 == add2;"
+    false "vm curried partial app neq";
+  run_vm_check "let f x = x + 1; let g x = x + 2; f == g;" false "vm different body neq"
+
 let () =
   let open Alcotest in
   run "Vesper Bytecode VM Unit Tests"
@@ -348,6 +374,8 @@ let () =
           test_case "Core IR free variables computation" `Quick test_core_ir_free_vars;
           test_case "Compiler filters captures to free variables" `Quick
             test_compiler_free_var_captures;
+          test_case "Bytecode closure equality with filtered environment" `Quick
+            test_bytecode_closure_equality;
         ] );
       ( "Compiler Error Propagation",
         [
