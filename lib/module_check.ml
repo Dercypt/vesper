@@ -15,6 +15,26 @@ type checked_project = {
   root_env : Namespace.t;
 }
 
+let skolemize_type (ty : Types.t) : Types.t =
+  let skolem_map = ref [] in
+  let rec loop = function
+    | Types.TyInt -> Types.TyInt
+    | Types.TyBool -> Types.TyBool
+    | Types.TyString -> Types.TyString
+    | Types.TyUnit -> Types.TyUnit
+    | Types.TyArrow (t1, t2) -> Types.TyArrow (loop t1, loop t2)
+    | Types.TyVar id -> (
+        if id < 0 then Types.TyVar id
+        else
+          match List.assoc_opt id !skolem_map with
+          | Some neg_id -> Types.TyVar neg_id
+          | None ->
+              let neg_id = -(List.length !skolem_map + 1) in
+              skolem_map := (id, neg_id) :: !skolem_map;
+              Types.TyVar neg_id)
+  in
+  loop ty
+
 let rec check_interface_conformance ~(impl_ns : Namespace.t)
     ~(interface : Mod_ast.mod_sig) : (unit, Diagnostic.t list) result =
   let diags = ref [] in
@@ -43,7 +63,8 @@ let rec check_interface_conformance ~(impl_ns : Namespace.t)
                   :: !diags
             | Some val_entry -> (
                 let inst_ty = Type_env.instantiate fresh val_entry.scheme in
-                match Unify.unify ~span:spec.span inst_ty spec.ty with
+                let frozen_spec_ty = skolemize_type spec.ty in
+                match Unify.unify ~span:spec.span inst_ty frozen_spec_ty with
                 | Ok _ -> ()
                 | Error _ ->
                     let msg =
@@ -174,34 +195,81 @@ let check_module ?(project_env = Namespace.empty) ?interface
                   current_ns)
           | ModVal val_def -> (
               let type_env = Namespace.to_type_env current_ns in
-              let decl : Ast.decl =
-                {
-                  span = val_def.span;
-                  decl_desc =
-                    Ast.LetDecl
+              if not (Ast.span_is_valid val_def.span) then (
+                let diag =
+                  Diagnostic.error ~code:Error_code.E1007_invalid_span ~span:val_def.span
+                    (Printf.sprintf "Declaration violates Law 3 (invalid span): %s"
+                       (Ast.span_to_string val_def.span))
+                in
+                diags := diag :: !diags;
+                current_ns)
+              else
+                match val_def.annot with
+                | Some annot_ty -> (
+                    let value_expr =
+                      if val_def.args = [] then val_def.value
+                      else
+                        {
+                          Ast.span = val_def.value.span;
+                          desc = Ast.Fun { params = val_def.args; body = val_def.value };
+                        }
+                    in
+                    let check_env =
+                      if val_def.is_rec then
+                        Type_env.extend val_def.name
+                          (Types.Forall ([], annot_ty))
+                          type_env
+                      else type_env
+                    in
+                    match Typecheck.check check_env value_expr annot_ty with
+                    | Error err ->
+                        let diag =
+                          Diagnostic.of_ast_error
+                            ~code:
+                              (Option.value err.Ast.code
+                                 ~default:Error_code.E2001_type_error)
+                            err
+                        in
+                        diags := diag :: !diags;
+                        current_ns
+                    | Ok subst ->
+                        let final_ty = Types.apply subst annot_ty in
+                        let scheme = Type_env.generalize type_env final_ty in
+                        Namespace.bind_val ~name:val_def.name ~scheme ~span:val_def.span
+                          current_ns)
+                | None -> (
+                    let decl : Ast.decl =
                       {
-                        name = val_def.name;
-                        is_rec = val_def.is_rec;
-                        args = val_def.args;
-                        value = val_def.value;
-                      };
-                }
-              in
-              match Typecheck.typecheck_decl ~env:type_env decl with
-              | Error err ->
-                  let diag =
-                    Diagnostic.of_ast_error ~code:Error_code.E2001_type_error err
-                  in
-                  diags := diag :: !diags;
-                  current_ns
-              | Ok (_, extended_env) ->
-                  let scheme =
-                    match Type_env.lookup val_def.name extended_env with
-                    | Some s -> s
-                    | None -> Types.Forall ([], Types.TyUnit)
-                  in
-                  Namespace.bind_val ~name:val_def.name ~scheme ~span:val_def.span
-                    current_ns)
+                        span = val_def.span;
+                        decl_desc =
+                          Ast.LetDecl
+                            {
+                              name = val_def.name;
+                              is_rec = val_def.is_rec;
+                              args = val_def.args;
+                              value = val_def.value;
+                            };
+                      }
+                    in
+                    match Typecheck.typecheck_decl ~env:type_env decl with
+                    | Error err ->
+                        let diag =
+                          Diagnostic.of_ast_error
+                            ~code:
+                              (Option.value err.Ast.code
+                                 ~default:Error_code.E2001_type_error)
+                            err
+                        in
+                        diags := diag :: !diags;
+                        current_ns
+                    | Ok (_, extended_env) ->
+                        let scheme =
+                          match Type_env.lookup val_def.name extended_env with
+                          | Some s -> s
+                          | None -> Types.Forall ([], Types.TyUnit)
+                        in
+                        Namespace.bind_val ~name:val_def.name ~scheme ~span:val_def.span
+                          current_ns))
           | ModType type_def ->
               Namespace.bind_type ~name:type_def.name ~params:type_def.params
                 ~manifest:type_def.ty ~span:type_def.span current_ns

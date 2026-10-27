@@ -371,6 +371,41 @@ let test_import_scanner_isolation () =
             (String.length diag.message > 0))
     malformed_imports
 
+let test_module_conformance_isolation () =
+  let span =
+    match
+      Ast.create_span ~file:"law1_module.vesper" ~start_line:1 ~start_col:1 ~end_line:1
+        ~end_col:10
+    with
+    | Ok s -> s
+    | Error _ -> Ast.dummy_span
+  in
+  let impl_ns =
+    Namespace.bind_val ~name:"foo"
+      ~scheme:(Types.Forall ([], Types.TyArrow (Types.TyInt, Types.TyInt)))
+      ~span Namespace.empty
+  in
+  let iface_sig =
+    Mod_ast.make_sig_body ~span
+      [
+        Mod_ast.SigVal
+          (Mod_ast.make_val_spec ~span ~name:"foo"
+             ~ty:(Types.TyArrow (Types.TyVar 0, Types.TyVar 0)));
+      ]
+  in
+  match Module_check.check_interface_conformance ~impl_ns ~interface:iface_sig with
+  | Ok () ->
+      Alcotest.fail "Expected conformance failure for unsound polymorphic interface"
+  | Error diags ->
+      Alcotest.(check bool) "Diagnostics non-empty" true (diags <> []);
+      List.iter
+        (fun (d : Diagnostic.t) ->
+          Alcotest.(check bool)
+            "Error code is E4003" true
+            (Error_code.equal d.code Error_code.E4003_interface_mismatch);
+          Alcotest.(check bool) "Span is valid" true (Ast.span_is_valid d.span))
+        diags
+
 let test_10000_adversarial_fuzzing () =
   Random.init 42;
   let sample_count = 10_000 in
@@ -408,6 +443,8 @@ let tests =
       test_overloaded_operator_diagnostics;
     test_case "Import scanner isolates host exceptions on malformed module names" `Quick
       test_import_scanner_isolation;
+    test_case "Module interface conformance isolates host under Law 1" `Quick
+      test_module_conformance_isolation;
     test_case "10,000 adversarial fuzzing inputs isolate host completely" `Quick
       test_10000_adversarial_fuzzing;
   ]

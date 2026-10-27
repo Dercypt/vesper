@@ -97,13 +97,50 @@ let test_types_and_unify () =
     (Unify.occurs_check 0 infinite_ty);
   match Unify.unify ~span (Types.TyVar 0) infinite_ty with
   | Ok _ -> Alcotest.fail "Expected occurs check failure"
-  | Error err ->
+  | Error err -> (
       let len_sub = String.length "Occurs check failed" in
       let found =
         String.length err.message >= len_sub
         && String.sub err.message 0 len_sub = "Occurs check failed"
       in
-      Alcotest.(check bool) "occurs check error message" true found
+      Alcotest.(check bool) "occurs check error message" true found;
+
+      (* Rigid / Skolem type variable unification *)
+      (match Unify.unify ~span (Types.TyVar (-1)) (Types.TyVar (-1)) with
+      | Ok s ->
+          Alcotest.(check bool)
+            "rigid var unifies with self" true (Types.IntMap.is_empty s)
+      | Error _ -> Alcotest.fail "Expected rigid var to unify with itself");
+      (match Unify.unify ~span (Types.TyVar 0) (Types.TyVar (-1)) with
+      | Ok s -> (
+          match Types.IntMap.find_opt 0 s with
+          | Some (Types.TyVar -1) -> ()
+          | _ -> Alcotest.fail "Expected flexible var 0 to map to rigid TyVar (-1)")
+      | Error _ -> Alcotest.fail "Expected flexible var to bind to rigid var");
+      (match Unify.unify ~span (Types.TyVar (-1)) (Types.TyVar 0) with
+      | Ok s -> (
+          match Types.IntMap.find_opt 0 s with
+          | Some (Types.TyVar -1) -> ()
+          | _ -> Alcotest.fail "Expected flexible var 0 to map to rigid TyVar (-1)")
+      | Error _ -> Alcotest.fail "Expected flexible var to bind to rigid var");
+      (match Unify.unify ~span (Types.TyVar (-1)) Types.TyInt with
+      | Ok _ -> Alcotest.fail "Expected rigid var instantiation with int to fail"
+      | Error err ->
+          Alcotest.(check string)
+            "cannot instantiate rigid" "Cannot instantiate rigid type variable ''t-1'"
+            err.message);
+      (match Unify.unify ~span Types.TyInt (Types.TyVar (-1)) with
+      | Ok _ -> Alcotest.fail "Expected rigid var instantiation with int to fail"
+      | Error err ->
+          Alcotest.(check string)
+            "cannot instantiate rigid" "Cannot instantiate rigid type variable ''t-1'"
+            err.message);
+      match Unify.unify ~span (Types.TyVar (-1)) (Types.TyVar (-2)) with
+      | Ok _ -> Alcotest.fail "Expected distinct rigid vars unification to fail"
+      | Error err ->
+          Alcotest.(check string)
+            "cannot instantiate rigid with rigid"
+            "Cannot instantiate rigid type variable ''t-1'" err.message)
 
 let test_primitives_and_arithmetic () =
   check_type "int literal" "int" "42;";

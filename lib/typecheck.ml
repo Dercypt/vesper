@@ -301,7 +301,14 @@ let infer (env : Type_env.t) (expr : Ast.expr) : (Types.subst * Types.t, Ast.err
 
 let check (env : Type_env.t) (expr : Ast.expr) (expected_ty : Types.t) :
     (Types.subst, Ast.error) result =
-  let fresh = make_var_gen env in
+  let max_in_ty = Types.IntSet.fold max (Types.ftv expected_ty) (-1) in
+  let start_id = max (Type_env.max_var env) max_in_ty + 1 in
+  let counter = ref start_id in
+  let fresh () =
+    let id = !counter in
+    incr counter;
+    Types.TyVar id
+  in
   let* subst, constraints = check_internal fresh env expr expected_ty in
   let* final_subst, _ = default_and_check_constraints env subst constraints in
   Ok final_subst

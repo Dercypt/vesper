@@ -9,6 +9,15 @@ let rec occurs_check (var_id : int) (ty : Types.t) : bool =
 let bind_var ~span (var_id : int) (ty : Types.t) : (Types.subst, Ast.error) result =
   match ty with
   | Types.TyVar id when id = var_id -> Ok Types.empty_subst
+  | _ when var_id < 0 ->
+      Error
+        {
+          Ast.code = Some Error_code.E2001_type_error;
+          span;
+          message =
+            Printf.sprintf "Cannot instantiate rigid type variable '%s'"
+              (Types.to_string (Types.TyVar var_id));
+        }
   | _ when occurs_check var_id ty ->
       Error
         {
@@ -28,6 +37,7 @@ let rec unify ~span (t1 : Types.t) (t2 : Types.t) : (Types.subst, Ast.error) res
   | TyInt, TyInt | TyBool, TyBool | TyString, TyString | TyUnit, TyUnit ->
       Ok Types.empty_subst
   | TyVar id1, TyVar id2 when id1 = id2 -> Ok Types.empty_subst
+  | TyVar id1, TyVar id2 when id1 < 0 && id2 >= 0 -> bind_var ~span id2 (Types.TyVar id1)
   | TyVar id1, other -> bind_var ~span id1 other
   | other, TyVar id2 -> bind_var ~span id2 other
   | TyArrow (arg1, res1), TyArrow (arg2, res2) ->
