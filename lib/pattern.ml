@@ -41,6 +41,7 @@ type clause = {
 let wildcard ~span = { span; desc = PWildcard }
 let var ~span name = { span; desc = PVar name }
 let lit ~span l = { span; desc = PLit l }
+let unit ~span = { span; desc = PLit Ast.Unit }
 let int ~span n = { span; desc = PLit (Ast.Int n) }
 let bool ~span b = { span; desc = PLit (Ast.Bool b) }
 let string ~span s = { span; desc = PLit (Ast.String s) }
@@ -245,6 +246,7 @@ let rec equal (p1 : pattern) (p2 : pattern) : bool =
       | Ast.Int a, Ast.Int b -> a = b
       | Ast.Bool a, Ast.Bool b -> a = b
       | Ast.String a, Ast.String b -> String.equal a b
+      | Ast.Unit, Ast.Unit -> true
       | _ -> false)
   | PConstructor (c1, args1), PConstructor (c2, args2) ->
       String.equal c1 c2 && List.equal equal args1 args2
@@ -285,6 +287,7 @@ let rec pp fmt p =
   | PLit (Int n) -> Format.fprintf fmt "%d" n
   | PLit (Bool b) -> Format.fprintf fmt "%b" b
   | PLit (String s) -> Format.fprintf fmt "%S" s
+  | PLit Unit -> Format.fprintf fmt "()"
   | PConstructor (name, []) -> Format.fprintf fmt "%s" name
   | PConstructor (name, args) ->
       Format.fprintf fmt "%s(%a)" name

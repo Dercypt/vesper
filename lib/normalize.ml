@@ -18,12 +18,16 @@ let fold_primop ~span (op : Core_ir.primop) (args : Core_ir.expr list) : Core_ir
       Core_ir.make_expr ~span (Lit (Bool (a = b)))
   | Eq, [ { desc = Lit (String a); _ }; { desc = Lit (String b); _ } ] ->
       Core_ir.make_expr ~span (Lit (Bool (String.equal a b)))
+  | Eq, [ { desc = Lit Unit; _ }; { desc = Lit Unit; _ } ] ->
+      Core_ir.make_expr ~span (Lit (Bool true))
   | Neq, [ { desc = Lit (Int a); _ }; { desc = Lit (Int b); _ } ] ->
       Core_ir.make_expr ~span (Lit (Bool (a <> b)))
   | Neq, [ { desc = Lit (Bool a); _ }; { desc = Lit (Bool b); _ } ] ->
       Core_ir.make_expr ~span (Lit (Bool (a <> b)))
   | Neq, [ { desc = Lit (String a); _ }; { desc = Lit (String b); _ } ] ->
       Core_ir.make_expr ~span (Lit (Bool (not (String.equal a b))))
+  | Neq, [ { desc = Lit Unit; _ }; { desc = Lit Unit; _ } ] ->
+      Core_ir.make_expr ~span (Lit (Bool false))
   | Lt, [ { desc = Lit (Int a); _ }; { desc = Lit (Int b); _ } ] ->
       Core_ir.make_expr ~span (Lit (Bool (a < b)))
   | Le, [ { desc = Lit (Int a); _ }; { desc = Lit (Int b); _ } ] ->

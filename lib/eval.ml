@@ -90,6 +90,7 @@ let rec eval_step (env : Env.t) (fuel : int) (steps : int) (e : Core_ir.expr) :
     | Lit (Int n) -> Ok (Value.VInt n, steps + 1, fuel)
     | Lit (Bool b) -> Ok (Value.VBool b, steps + 1, fuel)
     | Lit (String s) -> Ok (Value.VString s, steps + 1, fuel)
+    | Lit Unit -> Ok (Value.VUnit, steps + 1, fuel)
     | Var id -> (
         match Env.lookup id env with
         | Some v -> Ok (v, steps + 1, fuel)
