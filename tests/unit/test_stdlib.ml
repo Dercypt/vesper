@@ -454,15 +454,19 @@ let test_io_primitives () =
       | _ -> Alcotest.fail "Expected read_line to return hello world")
   | _ -> Alcotest.fail "Expected read_line native function");
 
-  (* Test invalid int returns 0 safely without crashing (Law 1) *)
+  (* Test invalid int returns error diagnostic without crashing (Law 1) *)
   (match read_int_val with
   | Some (Value.VNative (_, f)) -> (
       match f (Value.VString "") with
-      | Ok (Value.VInt 0) -> ()
-      | _ -> Alcotest.fail "Expected read_int on non-integer to return 0")
+      | Error diag ->
+          Alcotest.(check bool)
+            "invalid int produces E0001_io_error" true
+            (diag.code = Error_code.E0001_io_error)
+      | Ok _ ->
+          Alcotest.fail "Expected read_int on non-integer to return Error diagnostic")
   | _ -> Alcotest.fail "Expected read_int native function");
 
-  (* Test EOF returns safe defaults (Law 1) *)
+  (* Test EOF returns safe defaults / error (Law 1) *)
   (match read_line_val with
   | Some (Value.VNative (_, f)) -> (
       match f (Value.VString "") with
@@ -473,8 +477,11 @@ let test_io_primitives () =
   (match read_int_val with
   | Some (Value.VNative (_, f)) -> (
       match f (Value.VString "") with
-      | Ok (Value.VInt 0) -> ()
-      | _ -> Alcotest.fail "Expected read_int on EOF to return 0")
+      | Error diag ->
+          Alcotest.(check bool)
+            "read_int on EOF produces E0001_io_error" true
+            (diag.code = Error_code.E0001_io_error)
+      | Ok _ -> Alcotest.fail "Expected read_int on EOF to return Error diagnostic")
   | _ -> Alcotest.fail "Expected read_int native function");
 
   (* Restore stdin *)
