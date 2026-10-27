@@ -241,6 +241,60 @@ let test_bytecode_closure_operations () =
   let clos2 = Value.bytecode_closure ~chunk ~env:[] in
   Alcotest.(check bool) "equal closure self" true (Value.equal clos clos2)
 
+let test_core_ir_free_vars () =
+  let span = dummy_span in
+  let mk_var name = Core_ir.make_expr ~span (Var name) in
+  let mk_int n = Core_ir.make_expr ~span (Lit (Int n)) in
+  let mk_add a b = Core_ir.make_expr ~span (PrimOp { op = Add; args = [ a; b ] }) in
+  (* Literals *)
+  Alcotest.(check (list string)) "lit has no free vars" [] (Core_ir.free_vars (mk_int 42));
+  (* Var *)
+  Alcotest.(check (list string))
+    "var has free var" [ "x" ]
+    (Core_ir.free_vars (mk_var "x"));
+  (* PrimOp *)
+  Alcotest.(check (list string))
+    "primop combines free vars" [ "x"; "y" ]
+    (Core_ir.free_vars (mk_add (mk_var "y") (mk_var "x")));
+  (* Fun binds parameter *)
+  let fun1 =
+    Core_ir.make_expr ~span (Fun { param = "x"; body = mk_add (mk_var "x") (mk_int 1) })
+  in
+  Alcotest.(check (list string)) "fun binds param" [] (Core_ir.free_vars fun1);
+  (* Curried inner fun retains outer param *)
+  let inner_body = mk_add (mk_var "x") (mk_var "y") in
+  let inner_fun = Core_ir.make_expr ~span (Fun { param = "y"; body = inner_body }) in
+  Alcotest.(check (list string))
+    "inner fun free vars" [ "x" ] (Core_ir.free_vars inner_fun);
+  let outer_fun = Core_ir.make_expr ~span (Fun { param = "x"; body = inner_fun }) in
+  Alcotest.(check (list string)) "outer fun binds both" [] (Core_ir.free_vars outer_fun);
+  (* Let binding *)
+  let let_nonrec =
+    Core_ir.make_expr ~span
+      (Let
+         {
+           name = "a";
+           is_rec = false;
+           value = mk_var "z";
+           body = mk_add (mk_var "a") (mk_var "b");
+         })
+  in
+  Alcotest.(check (list string))
+    "let nonrec free vars" [ "b"; "z" ]
+    (Core_ir.free_vars let_nonrec);
+  (* Let rec binding *)
+  let let_rec =
+    Core_ir.make_expr ~span
+      (Let
+         {
+           name = "f";
+           is_rec = true;
+           value = mk_add (mk_var "f") (mk_var "k");
+           body = mk_var "f";
+         })
+  in
+  Alcotest.(check (list string)) "let rec free vars" [ "k" ] (Core_ir.free_vars let_rec)
+
 let () =
   let open Alcotest in
   run "Vesper Bytecode VM Unit Tests"
@@ -259,6 +313,7 @@ let () =
           test_case "Static closures and pre-compiled functions" `Quick
             test_static_closures;
           test_case "Bytecode closure operations" `Quick test_bytecode_closure_operations;
+          test_case "Core IR free variables computation" `Quick test_core_ir_free_vars;
         ] );
       ( "Compiler Error Propagation",
         [

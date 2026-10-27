@@ -66,6 +66,16 @@ val program_equal : program -> program -> bool
 val equal : t -> t -> bool
 (** Alias for [expr_equal]. *)
 
+module StringSet : Set.S with type elt = string
+(** String set module used for tracking free variables and identifiers. *)
+
+val free_vars_set : expr -> StringSet.t
+(** Computes the set of free variables in a Core IR expression. *)
+
+val free_vars : expr -> string list
+(** Computes the sorted, deduplicated list of free variable identifiers in a Core IR
+    expression. *)
+
 val pp_expr : Format.formatter -> expr -> unit
 (** Pretty-printer for Core IR expressions. *)
 
