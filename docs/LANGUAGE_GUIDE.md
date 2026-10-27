@@ -31,7 +31,7 @@ fact 5;
 | :--- | :--- | :--- |
 | `\|\|` | Left | Logical OR |
 | `&&` | Left | Logical AND |
-| `==`, `!=` | Non-assoc | Structural equality |
+| `==`, `!=` | Non-assoc | Structural equality (primitives, ADTs, records, and closures by structural chunk & captured free variables) |
 | `<`, `<=`, `>`, `>=` | Non-assoc | Comparisons (integers and strings) |
 | `+`, `-` | Left | Addition, string concatenation, subtraction |
 | `*`, `/`, `%` | Left | Multiplication, division, modulo |

@@ -30,7 +30,7 @@ flowchart LR
 7. **Modules (Standalone Experimental Library)** (`lib/mod_ast.ml`, `lib/namespace.ml`, `lib/dep_graph.ml`, `lib/module_check.ml`):
    Namespaces, interface checking, fast line dependency scanning with total empty-module host isolation (Law 1), and topological cycle detection. Verified via unit tests with prototype line parsing; Menhir grammar integration is pending.
 8. **Bytecode VM** (`lib/opcode.ml`, `lib/bytecode.ml`, `lib/compiler.ml`, `lib/vm.ml`):
-   Stack machine with compact bytecode instructions and disassembler (`lib/disasm.ml`).
+   Stack machine with compact bytecode instructions, minimal free-variable closure capture, and disassembler (`lib/disasm.ml`).
 9. **Standard Library & Effects** (`lib/effect_runtime.ml`, `lib/stdlib/`):
    Sandboxed runtime boundaries and pure data structures (`List`, `Map`, `Option`, `Result`, `String`, `Math`).
 10. **CLI & Tooling** (`lib/cli.ml`, `lib/repl.ml`, `lib/lsp_server.ml`):
