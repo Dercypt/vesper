@@ -497,6 +497,98 @@ let test_io_primitives () =
       | _ -> Alcotest.fail "Expected print to return unit")
   | _ -> Alcotest.fail "Expected print native function"
 
+let test_io_types_and_soundness () =
+  let env = Prelude.default_type_env () in
+  let check_type_ok src expected_ty =
+    match Parse_facade.parse_string ~file:"<test>" src with
+    | Error diag -> Alcotest.fail ("Parse error: " ^ diag.message)
+    | Ok ast -> (
+        match Typecheck.typecheck_program ~env ast with
+        | Ok typed_prog ->
+            let last_ty =
+              match List.rev typed_prog.decls with
+              | [] -> Types.TyUnit
+              | d :: _ -> (
+                  match d.desc with
+                  | Typecheck.TypedExprDecl e -> e.ty
+                  | Typecheck.TypedLetDecl ld -> (
+                      match ld.scheme with Types.Forall (_, ty) -> ty))
+            in
+            Alcotest.(check string)
+              ("Type of " ^ src) expected_ty
+              (Types.to_string (Types.normalize_vars last_ty))
+        | Error diags ->
+            Alcotest.fail
+              ("Expected typecheck to succeed, got errors: "
+              ^ String.concat "; " (List.map (fun (d : Diagnostic.t) -> d.message) diags)
+              ))
+  in
+  let check_type_err src =
+    match Parse_facade.parse_string ~file:"<test>" src with
+    | Error diag -> Alcotest.fail ("Parse error: " ^ diag.message)
+    | Ok ast -> (
+        match Typecheck.typecheck_program ~env ast with
+        | Ok _ -> Alcotest.fail ("Expected type error for: " ^ src)
+        | Error diags ->
+            Alcotest.(check bool)
+              ("Type error reported for " ^ src)
+              true
+              (List.exists
+                 (fun (d : Diagnostic.t) -> d.code = Error_code.E2001_type_error)
+                 diags))
+  in
+  check_type_ok "read_int \"Enter number: \";" "int";
+  check_type_ok "read_line \"Prompt: \";" "string";
+  check_type_err "read_int true;";
+  check_type_err "read_int (fun x -> x);";
+  check_type_err "read_line 42;";
+  check_type_err "read_line true;"
+
+let test_unit_literal_semantics () =
+  let src = "();" in
+  match Parse_facade.parse_string ~file:"<test>" src with
+  | Error diag -> Alcotest.fail ("Parse error: " ^ diag.message)
+  | Ok ast -> (
+      (match ast.decls with
+      | [ { decl_desc = ExprDecl { desc = Lit Unit; _ }; _ } ] -> ()
+      | _ -> Alcotest.fail "Expected Lit Unit AST node");
+      (match Typecheck.typecheck_program ast with
+      | Ok typed_prog -> (
+          match typed_prog.decls with
+          | [ { desc = TypedExprDecl { ty = Types.TyUnit; _ }; _ } ] -> ()
+          | _ -> Alcotest.fail "Expected typed TyUnit decl")
+      | Error _ -> Alcotest.fail "Expected () to typecheck as TyUnit");
+      let core =
+        match Desugar.lower ast with
+        | Ok c -> c
+        | Error err -> Alcotest.fail ("Desugar error: " ^ err.message)
+      in
+      let vm_env = Prelude.default_vm_env () in
+      let chunk =
+        match Compiler.compile_program core with
+        | Ok c -> c
+        | Error err -> Alcotest.fail ("Compiler error: " ^ err.message)
+      in
+      (match Vm.run ~env:vm_env chunk with
+      | Ok Value.VUnit -> ()
+      | Ok _ -> Alcotest.fail "Expected VM to return VUnit"
+      | Error err -> Alcotest.fail ("VM error: " ^ err.message));
+      let eval_env = Prelude.default_eval_env () in
+      (match Eval.eval_program ~env:eval_env core with
+      | Ok Value.VUnit -> ()
+      | Ok _ -> Alcotest.fail "Expected Evaluator to return VUnit"
+      | Error err -> Alcotest.fail ("Evaluator error: " ^ err.message));
+      let eq_src = "() == ();" in
+      let eq_ast = Result.get_ok (Parse_facade.parse_string ~file:"<test>" eq_src) in
+      let eq_core = Result.get_ok (Desugar.lower eq_ast) in
+      let eq_chunk = Result.get_ok (Compiler.compile_program eq_core) in
+      (match Vm.run ~env:vm_env eq_chunk with
+      | Ok (Value.VBool true) -> ()
+      | _ -> Alcotest.fail "Expected () == () to be true on VM");
+      match Eval.eval_program ~env:eval_env eq_core with
+      | Ok (Value.VBool true) -> ()
+      | _ -> Alcotest.fail "Expected () == () to be true on Evaluator")
+
 let () =
   let open Alcotest in
   run "Vesper Standard Library Unit Tests"
@@ -517,5 +609,8 @@ let () =
         [
           test_case "Standard prelude ingestion and execution" `Quick test_prelude;
           test_case "I/O primitives and total isolation" `Quick test_io_primitives;
+          test_case "I/O primitive types and soundness" `Quick test_io_types_and_soundness;
+          test_case "Unit literal () semantics and evaluation" `Quick
+            test_unit_literal_semantics;
         ] );
     ]
