@@ -565,7 +565,7 @@ Design a sandboxed I/O system isolating the host environment from user programs.
 * **Step 9.2.1**: Define capability token types in `lib/effect_runtime.mli`:
   ```ocaml
   type io_env = {
-    stdin : in_channel;
+    stdin : string * int ref;
     stdout : Buffer.t;
     stderr : Buffer.t;
     fs_root : string option;
