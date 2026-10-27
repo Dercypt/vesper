@@ -352,6 +352,103 @@ let test_decision_tree_lowering_to_core () =
       | _ -> Alcotest.fail "Expected If node in lowered Core IR")
   | Error err -> Alcotest.fail err.message
 
+let test_decision_tree_lowering_errors () =
+  let span = test_span in
+  let dummy_expr = Core_ir.make_expr ~span (Core_ir.Lit (Ast.Int 42)) in
+
+  (* 1. SwitchConstructor error *)
+  let ctor_tree =
+    Pat_compile.SwitchConstructor
+      {
+        target = Pat_compile.Here;
+        span;
+        cases =
+          [
+            ( "Some",
+              Pat_compile.Leaf
+                { action_id = 0; span; bindings = []; guard = None; body = dummy_expr } );
+          ];
+        default = None;
+      }
+  in
+  let res_ctor = Pat_compile.lower_to_core ~span ~target_var:"x" ctor_tree in
+  Alcotest.(check bool) "SwitchConstructor returns Error" true (Result.is_error res_ctor);
+
+  (* 2. Failure node error *)
+  let fail_tree = Pat_compile.Failure { span } in
+  let res_fail = Pat_compile.lower_to_core ~span ~target_var:"x" fail_tree in
+  Alcotest.(check bool) "Failure returns Error" true (Result.is_error res_fail);
+
+  (* 3. SwitchLit without default returns Error *)
+  let lit_no_def =
+    Pat_compile.SwitchLit
+      {
+        target = Pat_compile.Here;
+        span;
+        cases =
+          [
+            ( Ast.Int 1,
+              Pat_compile.Leaf
+                { action_id = 0; span; bindings = []; guard = None; body = dummy_expr } );
+          ];
+        default = None;
+      }
+  in
+  let res_lit = Pat_compile.lower_to_core ~span ~target_var:"x" lit_no_def in
+  Alcotest.(check bool)
+    "Missing literal default returns Error" true (Result.is_error res_lit);
+
+  (* 4. Leaf with non-root binding path returns Error *)
+  let leaf_non_root =
+    Pat_compile.Leaf
+      {
+        action_id = 0;
+        span;
+        bindings = [ ("v", Pat_compile.Arg (0, Pat_compile.Here)) ];
+        guard = None;
+        body = dummy_expr;
+      }
+  in
+  let res_leaf = Pat_compile.lower_to_core ~span ~target_var:"x" leaf_non_root in
+  Alcotest.(check bool)
+    "Non-root Leaf binding path returns Error" true (Result.is_error res_leaf);
+
+  (* 5. SwitchBool with non-root target returns Error *)
+  let bool_non_root =
+    Pat_compile.SwitchBool
+      {
+        target = Pat_compile.Arg (0, Pat_compile.Here);
+        span;
+        true_branch =
+          Pat_compile.Leaf
+            { action_id = 0; span; bindings = []; guard = None; body = dummy_expr };
+        false_branch =
+          Pat_compile.Leaf
+            { action_id = 1; span; bindings = []; guard = None; body = dummy_expr };
+      }
+  in
+  let res_bool = Pat_compile.lower_to_core ~span ~target_var:"x" bool_non_root in
+  Alcotest.(check bool)
+    "Non-root SwitchBool target returns Error" true (Result.is_error res_bool);
+
+  (* 6. Guard with non-root binding path returns Error *)
+  let guard_non_root =
+    Pat_compile.Guard
+      {
+        bindings = [ ("v", Pat_compile.Field ("f", Pat_compile.Here)) ];
+        condition = Core_ir.make_expr ~span (Core_ir.Lit (Ast.Bool true));
+        then_tree =
+          Pat_compile.Leaf
+            { action_id = 0; span; bindings = []; guard = None; body = dummy_expr };
+        else_tree =
+          Pat_compile.Leaf
+            { action_id = 1; span; bindings = []; guard = None; body = dummy_expr };
+      }
+  in
+  let res_guard = Pat_compile.lower_to_core ~span ~target_var:"x" guard_non_root in
+  Alcotest.(check bool)
+    "Non-root Guard binding path returns Error" true (Result.is_error res_guard)
+
 let test_deterministic_evaluation () =
   let sig_env = standard_sig_env in
   let span = test_span in
@@ -491,6 +588,100 @@ let test_deterministic_evaluation () =
       (r_iter = Ok (Value.int 30))
   done
 
+let test_multicolumn_wildcard_column_preservation () =
+  let sig_env = standard_sig_env in
+  let span = test_span in
+  let env = Env.empty in
+
+  (* Multi-column matrix test: Cons(_, Cons(0, Nil)) before Cons(99, _) *)
+  let clauses =
+    [
+      make_clause ~span
+        (construct ~span "Cons"
+           [
+             wildcard ~span;
+             construct ~span "Cons" [ int ~span 0; construct ~span "Nil" [] ];
+           ])
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "first")));
+      make_clause ~span
+        (construct ~span "Cons" [ int ~span 99; wildcard ~span ])
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "second")));
+      make_clause ~span (wildcard ~span)
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "fallback")));
+    ]
+  in
+
+  (* 1. Input: Cons(42, Cons(0, Nil)) matches the first clause *)
+  let val_first =
+    Value.construct "Cons"
+      [ Value.int 42; Value.construct "Cons" [ Value.int 0; Value.construct "Nil" [] ] ]
+  in
+  let r_first = Pat_compile.eval_match ~sig_env ~span env val_first clauses in
+  Alcotest.(check bool)
+    "Cons(42, Cons(0, Nil)) matches first clause" true
+    (r_first = Ok (Value.string "first"));
+
+  (* 2. Input: Cons(99, Nil) matches the second clause because 99 matches *)
+  let val_second = Value.construct "Cons" [ Value.int 99; Value.construct "Nil" [] ] in
+  let r_second = Pat_compile.eval_match ~sig_env ~span env val_second clauses in
+  Alcotest.(check bool)
+    "Cons(99, Nil) matches second clause" true
+    (r_second = Ok (Value.string "second"));
+
+  (* 3. Input: Cons(42, Nil) must NOT match second clause because 42 != 99; falls back *)
+  let val_other = Value.construct "Cons" [ Value.int 42; Value.construct "Nil" [] ] in
+  let r_other = Pat_compile.eval_match ~sig_env ~span env val_other clauses in
+  Alcotest.(check bool)
+    "Cons(42, Nil) preserves 99 check and falls back" true
+    (r_other = Ok (Value.string "fallback"));
+
+  (* 4. Guarded tuple matching: (x, y) when y > 0 before (99, _) *)
+  let guard_y_gt_0 =
+    Core_ir.make_expr ~span
+      (Core_ir.PrimOp
+         {
+           op = Core_ir.Gt;
+           args =
+             [
+               Core_ir.make_expr ~span (Core_ir.Var "y");
+               Core_ir.make_expr ~span (Core_ir.Lit (Ast.Int 0));
+             ];
+         })
+  in
+  let tuple_clauses =
+    [
+      make_clause ~span ~guard:guard_y_gt_0
+        (tuple ~span [ var ~span "x"; var ~span "y" ])
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "guarded")));
+      make_clause ~span
+        (tuple ~span [ int ~span 99; wildcard ~span ])
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "ninety-nine")));
+      make_clause ~span (wildcard ~span)
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "other")));
+    ]
+  in
+
+  (* (10, 5) satisfies guard y > 0 *)
+  let tup_pos = Value.construct "(tuple)" [ Value.int 10; Value.int 5 ] in
+  let r_tup_pos = Pat_compile.eval_match ~sig_env ~span env tup_pos tuple_clauses in
+  Alcotest.(check bool)
+    "(10, 5) matches guarded tuple" true
+    (r_tup_pos = Ok (Value.string "guarded"));
+
+  (* (99, 0) fails guard (0 not > 0), falls through to (99, _) and matches ninety-nine *)
+  let tup_99 = Value.construct "(tuple)" [ Value.int 99; Value.int 0 ] in
+  let r_tup_99 = Pat_compile.eval_match ~sig_env ~span env tup_99 tuple_clauses in
+  Alcotest.(check bool)
+    "(99, 0) falls through guard and matches 99 check" true
+    (r_tup_99 = Ok (Value.string "ninety-nine"));
+
+  (* (42, 0) fails guard and does not match 99, falls through to other *)
+  let tup_42 = Value.construct "(tuple)" [ Value.int 42; Value.int 0 ] in
+  let r_tup_42 = Pat_compile.eval_match ~sig_env ~span env tup_42 tuple_clauses in
+  Alcotest.(check bool)
+    "(42, 0) falls through guard and rejects non-99" true
+    (r_tup_42 = Ok (Value.string "other"))
+
 let test_law1_host_isolation () =
   let sig_env = standard_sig_env in
   let span = test_span in
@@ -548,11 +739,15 @@ let () =
         [
           test_case "Lowering decision trees to Core IR conditionals" `Quick
             test_decision_tree_lowering_to_core;
+          test_case "Explicit errors on unsupported lowering constructs" `Quick
+            test_decision_tree_lowering_errors;
         ] );
       ( "Deterministic Evaluation",
         [
           test_case "Runtime matching, closures, recursion, and Law 5" `Quick
             test_deterministic_evaluation;
+          test_case "Multi-column wildcard column preservation" `Quick
+            test_multicolumn_wildcard_column_preservation;
         ] );
       ( "Host Isolation & Safety",
         [

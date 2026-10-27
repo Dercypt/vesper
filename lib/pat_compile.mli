@@ -65,7 +65,9 @@ val compile :
 val lower_to_core :
   span:Ast.span -> target_var:string -> decision_tree -> (Core_ir.expr, Ast.error) result
 (** Lowers a decision tree containing literal and boolean switches into Core IR
-    conditional expressions. *)
+    conditional expressions. Returns [Error] if the tree contains [SwitchConstructor],
+    [Failure], missing defaults in [SwitchLit], or non-root variable binding/target paths.
+*)
 
 val eval_tree :
   ?fuel:int -> Env.t -> Value.t -> decision_tree -> (Value.t, Ast.error) result

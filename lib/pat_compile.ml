@@ -130,6 +130,43 @@ type compile_row = {
   body : Core_ir.expr;
 }
 
+let rec pat_is_ctor_or_lit (p : Pattern.pattern) : bool =
+  match p.desc with
+  | Pattern.PLit _ | Pattern.PConstructor _ -> true
+  | Pattern.PAlias (inner, _) -> pat_is_ctor_or_lit inner
+  | Pattern.POr (p1, p2) -> pat_is_ctor_or_lit p1 || pat_is_ctor_or_lit p2
+  | _ -> false
+
+let has_ctor_or_lit_in_col1 (rows : compile_row list) : bool =
+  List.exists
+    (fun r -> match r.pats with (_, p) :: _ -> pat_is_ctor_or_lit p | [] -> false)
+    rows
+
+let is_specialized_pat (p : Pattern.pattern) : bool =
+  match p.desc with
+  | Pattern.PLit _ | Pattern.PConstructor _ | Pattern.PTuple _ | Pattern.PRecord _ -> true
+  | Pattern.PAlias _ | Pattern.POr _ -> true
+  | Pattern.PWildcard | Pattern.PVar _ -> false
+
+let find_constructor_col (pats : (path * Pattern.pattern) list) : int option =
+  let rec aux idx = function
+    | [] -> None
+    | (_, p) :: rest ->
+        if idx > 0 && is_specialized_pat p then Some idx else aux (idx + 1) rest
+  in
+  aux 0 pats
+
+let swap_cols i (r : compile_row) : compile_row =
+  let pats = r.pats in
+  if i <= 0 || i >= List.length pats then r
+  else
+    let col0 = List.nth pats 0 in
+    let coli = List.nth pats i in
+    let new_pats =
+      List.mapi (fun idx c -> if idx = 0 then coli else if idx = i then col0 else c) pats
+    in
+    { r with pats = new_pats }
+
 let rec decompose_matrix (sig_env : Pattern.signature_env) (span : Ast.span)
     (rows : compile_row list) : (decision_tree, Ast.error) result =
   match rows with
@@ -160,42 +197,55 @@ let rec decompose_matrix (sig_env : Pattern.signature_env) (span : Ast.span)
           | None -> Ok (Leaf act))
       | (curr_path, first_pat) :: _ -> (
           match first_pat.desc with
-          | Pattern.PWildcard ->
-              let next_rows =
-                List.map
-                  (fun r ->
-                    match r.pats with
-                    | (_, p) :: rest_pats -> (
-                        match p.desc with
-                        | Pattern.PVar name ->
-                            {
-                              r with
-                              pats = rest_pats;
-                              bindings = (name, curr_path) :: r.bindings;
-                            }
-                        | _ -> { r with pats = rest_pats })
-                    | [] -> r)
-                  rows
-              in
-              decompose_matrix sig_env span next_rows
-          | Pattern.PVar _ ->
-              let next_rows =
-                List.map
-                  (fun r ->
-                    match r.pats with
-                    | (_, p) :: rest_pats -> (
-                        match p.desc with
-                        | Pattern.PVar v ->
-                            {
-                              r with
-                              pats = rest_pats;
-                              bindings = (v, curr_path) :: r.bindings;
-                            }
-                        | _ -> { r with pats = rest_pats })
-                    | [] -> r)
-                  rows
-              in
-              decompose_matrix sig_env span next_rows
+          | Pattern.PWildcard | Pattern.PVar _ ->
+              if has_ctor_or_lit_in_col1 (List.tl rows) then
+                match find_constructor_col first_row.pats with
+                | Some col_idx ->
+                    let swapped_rows = List.map (swap_cols col_idx) rows in
+                    decompose_matrix sig_env span swapped_rows
+                | None -> (
+                    let bindings =
+                      List.fold_left
+                        (fun acc (p, { Pattern.desc; _ }) ->
+                          match desc with
+                          | Pattern.PVar name -> (name, p) :: acc
+                          | _ -> acc)
+                        first_row.bindings first_row.pats
+                    in
+                    let act =
+                      {
+                        action_id = first_row.action_id;
+                        span = first_row.span;
+                        bindings;
+                        guard = first_row.guard;
+                        body = first_row.body;
+                      }
+                    in
+                    match first_row.guard with
+                    | Some g ->
+                        let* else_tree = decompose_matrix sig_env span (List.tl rows) in
+                        Ok
+                          (Guard
+                             { bindings; condition = g; then_tree = Leaf act; else_tree })
+                    | None -> Ok (Leaf act))
+              else
+                let next_rows =
+                  List.map
+                    (fun r ->
+                      match r.pats with
+                      | (_, p) :: rest_pats -> (
+                          match p.desc with
+                          | Pattern.PVar name ->
+                              {
+                                r with
+                                pats = rest_pats;
+                                bindings = (name, curr_path) :: r.bindings;
+                              }
+                          | _ -> { r with pats = rest_pats })
+                      | [] -> r)
+                    rows
+                in
+                decompose_matrix sig_env span next_rows
           | Pattern.PAlias (inner, name) ->
               let updated_first =
                 {
@@ -683,57 +733,133 @@ let rec lower_to_core ~span ~target_var (tree : decision_tree) :
   let target_node = Core_ir.make_expr ~span (Core_ir.Var target_var) in
   match tree with
   | Leaf act ->
-      let curried_body =
-        List.fold_left
-          (fun acc_body (vname, p) ->
-            if String.equal (path_to_string p) "$" then
-              Core_ir.make_expr ~span:act.span
-                (Core_ir.Let
-                   { name = vname; is_rec = false; value = target_node; body = acc_body })
-            else acc_body)
-          act.body act.bindings
-      in
-      Ok curried_body
-  | SwitchBool { true_branch; false_branch; span = s; _ } ->
-      let* tb = lower_to_core ~span:s ~target_var true_branch in
-      let* fb = lower_to_core ~span:s ~target_var false_branch in
-      Ok
-        (Core_ir.make_expr ~span:s
-           (Core_ir.If { cond = target_node; then_branch = tb; else_branch = fb }))
-  | SwitchLit { cases; default; span = s; _ } ->
-      let* default_expr =
-        match default with
-        | Some d -> lower_to_core ~span:s ~target_var d
-        | None -> Ok (Core_ir.make_expr ~span:s (Core_ir.Lit (Ast.Int (-1))))
-      in
-      List.fold_right
-        (fun (lit, subtree) acc_res ->
-          let* acc = acc_res in
-          let* sub_expr = lower_to_core ~span:s ~target_var subtree in
-          let lit_node = Core_ir.make_expr ~span:s (Core_ir.Lit lit) in
-          let eq_cond =
-            Core_ir.make_expr ~span:s
-              (Core_ir.PrimOp { op = Core_ir.Eq; args = [ target_node; lit_node ] })
-          in
-          Ok
-            (Core_ir.make_expr ~span:s
-               (Core_ir.If { cond = eq_cond; then_branch = sub_expr; else_branch = acc })))
-        cases (Ok default_expr)
+      List.fold_left
+        (fun acc_res (vname, p) ->
+          let* acc_body = acc_res in
+          match p with
+          | Here ->
+              Ok
+                (Core_ir.make_expr ~span:act.span
+                   (Core_ir.Let
+                      {
+                        name = vname;
+                        is_rec = false;
+                        value = target_node;
+                        body = acc_body;
+                      }))
+          | _ ->
+              Error
+                Ast.
+                  {
+                    code = Some Error_code.E0002_internal_error;
+                    span = act.span;
+                    message =
+                      Printf.sprintf
+                        "Core IR lowering does not support non-root binding path '%s' \
+                         for variable '%s'"
+                        (path_to_string p) vname;
+                  })
+        (Ok act.body) act.bindings
+  | SwitchBool { target; true_branch; false_branch; span = s } ->
+      if target <> Here then
+        Error
+          Ast.
+            {
+              code = Some Error_code.E0002_internal_error;
+              span = s;
+              message =
+                Printf.sprintf
+                  "Core IR lowering does not support non-root switch target '%s'"
+                  (path_to_string target);
+            }
+      else
+        let* tb = lower_to_core ~span:s ~target_var true_branch in
+        let* fb = lower_to_core ~span:s ~target_var false_branch in
+        Ok
+          (Core_ir.make_expr ~span:s
+             (Core_ir.If { cond = target_node; then_branch = tb; else_branch = fb }))
+  | SwitchLit { target; cases; default; span = s } ->
+      if target <> Here then
+        Error
+          Ast.
+            {
+              code = Some Error_code.E0002_internal_error;
+              span = s;
+              message =
+                Printf.sprintf
+                  "Core IR lowering does not support non-root switch target '%s'"
+                  (path_to_string target);
+            }
+      else
+        let* default_expr =
+          match default with
+          | Some d -> lower_to_core ~span:s ~target_var d
+          | None ->
+              Error
+                Ast.
+                  {
+                    code = Some Error_code.E3001_non_exhaustive_match;
+                    span = s;
+                    message =
+                      "Missing default case in literal switch during Core IR lowering";
+                  }
+        in
+        List.fold_right
+          (fun (lit, subtree) acc_res ->
+            let* acc = acc_res in
+            let* sub_expr = lower_to_core ~span:s ~target_var subtree in
+            let lit_node = Core_ir.make_expr ~span:s (Core_ir.Lit lit) in
+            let eq_cond =
+              Core_ir.make_expr ~span:s
+                (Core_ir.PrimOp { op = Core_ir.Eq; args = [ target_node; lit_node ] })
+            in
+            Ok
+              (Core_ir.make_expr ~span:s
+                 (Core_ir.If { cond = eq_cond; then_branch = sub_expr; else_branch = acc })))
+          cases (Ok default_expr)
   | Guard { bindings; condition; then_tree; else_tree } ->
       let* tb = lower_to_core ~span ~target_var then_tree in
       let* fb = lower_to_core ~span ~target_var else_tree in
-      let wrapped_cond =
+      let* wrapped_cond =
         List.fold_left
-          (fun acc (vname, p) ->
-            if String.equal (path_to_string p) "$" then
-              Core_ir.make_expr ~span:condition.span
-                (Core_ir.Let
-                   { name = vname; is_rec = false; value = target_node; body = acc })
-            else acc)
-          condition bindings
+          (fun acc_res (vname, p) ->
+            let* acc = acc_res in
+            match p with
+            | Here ->
+                Ok
+                  (Core_ir.make_expr ~span:condition.span
+                     (Core_ir.Let
+                        { name = vname; is_rec = false; value = target_node; body = acc }))
+            | _ ->
+                Error
+                  Ast.
+                    {
+                      code = Some Error_code.E0002_internal_error;
+                      span = condition.span;
+                      message =
+                        Printf.sprintf
+                          "Core IR lowering does not support non-root binding path '%s' \
+                           for variable '%s'"
+                          (path_to_string p) vname;
+                    })
+          (Ok condition) bindings
       in
       Ok
         (Core_ir.make_expr ~span
            (Core_ir.If { cond = wrapped_cond; then_branch = tb; else_branch = fb }))
-  | SwitchConstructor _ | Failure _ ->
-      Ok (Core_ir.make_expr ~span (Core_ir.Lit (Ast.Int 0)))
+  | SwitchConstructor { span = s; _ } ->
+      Error
+        Ast.
+          {
+            code = Some Error_code.E0002_internal_error;
+            span = s;
+            message = "Constructor switches cannot be lowered directly to Core IR";
+          }
+  | Failure { span = s } ->
+      Error
+        Ast.
+          {
+            code = Some Error_code.E3001_non_exhaustive_match;
+            span = s;
+            message = "Non-exhaustive pattern match reached in Core IR lowering";
+          }
