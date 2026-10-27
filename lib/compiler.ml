@@ -163,9 +163,18 @@ and compile_expr_into builder (e : Core_ir.expr) : (unit, Ast.error) result =
       builder.stack_depth := !(builder.stack_depth) - 1;
       Ok ()
   | Fun { param; body } ->
-      let captures =
-        List.rev_map (fun l -> (l.name, l.slot)) !(builder.locals) |> Array.of_list
+      let fv =
+        Core_ir.free_vars body |> List.filter (fun v -> not (String.equal v param))
       in
+      let needed_captures =
+        List.filter_map
+          (fun name ->
+            match resolve_local builder name with
+            | Some slot -> Some (name, slot)
+            | None -> None)
+          fv
+      in
+      let captures = Array.of_list needed_captures in
       let* child_chunk = compile_fun ~captures ~param body in
       let child_idx = Dynarray.length builder.children in
       Dynarray.add_last builder.children child_chunk;

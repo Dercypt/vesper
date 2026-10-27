@@ -94,7 +94,17 @@ let rec eval_step (env : Env.t) (fuel : int) (steps : int) (e : Core_ir.expr) :
         match Env.lookup id env with
         | Some v -> Ok (v, steps + 1, fuel)
         | None -> err e.span (Printf.sprintf "Unbound variable '%s'" id))
-    | Fun { param; body } -> Ok (Value.VClosure { param; body; env }, steps + 1, fuel)
+    | Fun { param; body } ->
+        let fv =
+          List.filter (fun v -> not (String.equal v param)) (Core_ir.free_vars body)
+        in
+        let captured_env =
+          List.filter_map
+            (fun name ->
+              match Env.lookup name env with Some v -> Some (name, v) | None -> None)
+            fv
+        in
+        Ok (Value.VClosure { param; body; env = captured_env }, steps + 1, fuel)
     | Let { name; is_rec; value; body } ->
         if is_rec then
           match value.desc with
@@ -219,7 +229,11 @@ let eval_program_with_stats ?(fuel = default_fuel) ?(env = Env.empty)
                   match value.desc with
                   | Fun { param; body } ->
                       let rec_env = Env.extend_rec name param body cur_env in
-                      let closure_val = Value.closure ~param ~body ~env:rec_env in
+                      let closure_val =
+                        match Env.lookup name rec_env with
+                        | Some c -> c
+                        | None -> Value.closure ~param ~body ~env:rec_env
+                      in
                       loop rec_env cur_fuel (cur_steps + 1) closure_val rest
                   | _ -> (
                       let* v, steps', fuel' =
@@ -228,7 +242,11 @@ let eval_program_with_stats ?(fuel = default_fuel) ?(env = Env.empty)
                       match v with
                       | Value.VClosure { param; body; env = c_env } ->
                           let rec_env = Env.extend_rec name param body c_env in
-                          let closure_val = Value.closure ~param ~body ~env:rec_env in
+                          let closure_val =
+                            match Env.lookup name rec_env with
+                            | Some c -> c
+                            | None -> Value.closure ~param ~body ~env:rec_env
+                          in
                           let new_env = Env.extend name closure_val cur_env in
                           loop new_env fuel' steps' closure_val rest
                       | Value.VBytecodeClosure { chunk; env = c_env } ->

@@ -6,8 +6,21 @@ let shadow = extend
 let lookup name (env : t) : Value.t option = List.assoc_opt name env
 
 let extend_rec name param body (outer : t) : t =
-  let rec env = (name, Value.VClosure { param; body; env }) :: outer in
-  env
+  let fv =
+    List.filter
+      (fun v -> not (String.equal v param || String.equal v name))
+      (Core_ir.free_vars body)
+  in
+  let filtered_outer =
+    List.filter_map
+      (fun v -> match lookup v outer with Some val_ -> Some (v, val_) | None -> None)
+      fv
+  in
+  let rec closure_env =
+    (name, Value.VClosure { param; body; env = closure_env }) :: filtered_outer
+  in
+  let closure = Value.VClosure { param; body; env = closure_env } in
+  (name, closure) :: outer
 
 let mem name (env : t) : bool = List.mem_assoc name env
 let to_list (env : t) : (string * Value.t) list = env

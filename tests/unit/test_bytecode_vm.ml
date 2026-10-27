@@ -295,6 +295,38 @@ let test_core_ir_free_vars () =
   in
   Alcotest.(check (list string)) "let rec free vars" [ "k" ] (Core_ir.free_vars let_rec)
 
+let test_compiler_free_var_captures () =
+  let src = "let unused = 0; let f x = x + 1; f;" in
+  match Parse_facade.parse_string ~file:"<test>" src with
+  | Error diag -> Alcotest.fail diag.message
+  | Ok ast -> (
+      (match Compiler.compile ast with
+      | Error err -> Alcotest.fail err.message
+      | Ok main_chunk ->
+          Alcotest.(check int) "main has child chunk" 1 (Array.length main_chunk.children);
+          let fn_chunk = main_chunk.children.(0) in
+          Alcotest.(check int)
+            "f chunk captures nothing" 0
+            (Array.length fn_chunk.captures));
+      let src2 = "let f a b = let add_a x = a + x in add_a;" in
+      match Parse_facade.parse_string ~file:"<test>" src2 with
+      | Error diag -> Alcotest.fail diag.message
+      | Ok ast2 -> (
+          match Compiler.compile ast2 with
+          | Error err -> Alcotest.fail err.message
+          | Ok main_chunk2 ->
+              Alcotest.(check int)
+                "main has child chunk" 1
+                (Array.length main_chunk2.children);
+              let f_chunk = main_chunk2.children.(0) in
+              Alcotest.(check int) "f has child chunk" 1 (Array.length f_chunk.children);
+              let add_a_chunk = f_chunk.children.(0) in
+              Alcotest.(check int)
+                "add_a captures only a" 1
+                (Array.length add_a_chunk.captures);
+              let cap_name, _ = add_a_chunk.captures.(0) in
+              Alcotest.(check string) "captured var name is a" "a" cap_name))
+
 let () =
   let open Alcotest in
   run "Vesper Bytecode VM Unit Tests"
@@ -314,6 +346,8 @@ let () =
             test_static_closures;
           test_case "Bytecode closure operations" `Quick test_bytecode_closure_operations;
           test_case "Core IR free variables computation" `Quick test_core_ir_free_vars;
+          test_case "Compiler filters captures to free variables" `Quick
+            test_compiler_free_var_captures;
         ] );
       ( "Compiler Error Propagation",
         [
