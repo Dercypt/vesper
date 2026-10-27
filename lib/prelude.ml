@@ -57,34 +57,112 @@ let cached_core =
 
 let prelude_core () = Lazy.force cached_core
 
+let native_read_line arg =
+  (match arg with
+  | Value.VString prompt when prompt <> "" ->
+      print_string prompt;
+      flush stdout
+  | _ -> ());
+  try
+    let line = input_line stdin in
+    Ok (Value.VString line)
+  with
+  | End_of_file -> Ok (Value.VString "")
+  | Sys_error msg ->
+      Error
+        (Diagnostic.error ~code:Error_code.E0001_io_error ~span:Ast.dummy_span
+           (Printf.sprintf "I/O error reading stdin: %s" msg))
+  | exn ->
+      Error
+        (Diagnostic.error ~code:Error_code.E0001_io_error ~span:Ast.dummy_span
+           (Printf.sprintf "I/O failure: %s" (Printexc.to_string exn)))
+
+let native_read_int arg =
+  (match arg with
+  | Value.VString prompt when prompt <> "" ->
+      print_string prompt;
+      flush stdout
+  | _ -> ());
+  try
+    let line = String.trim (input_line stdin) in
+    match int_of_string_opt line with
+    | Some n -> Ok (Value.VInt n)
+    | None -> Ok (Value.VInt 0)
+  with
+  | End_of_file -> Ok (Value.VInt 0)
+  | Sys_error msg ->
+      Error
+        (Diagnostic.error ~code:Error_code.E0001_io_error ~span:Ast.dummy_span
+           (Printf.sprintf "I/O error reading stdin: %s" msg))
+  | exn ->
+      Error
+        (Diagnostic.error ~code:Error_code.E0001_io_error ~span:Ast.dummy_span
+           (Printf.sprintf "I/O failure: %s" (Printexc.to_string exn)))
+
+let native_print arg =
+  (match arg with
+  | Value.VString s -> print_string s
+  | other -> print_string (Value.to_string other));
+  flush stdout;
+  Ok Value.VUnit
+
+let io_type_bindings =
+  [
+    ("read_line", Types.Forall ([ 0 ], Types.TyArrow (Types.TyVar 0, Types.TyString)));
+    ("read_int", Types.Forall ([ 0 ], Types.TyArrow (Types.TyVar 0, Types.TyInt)));
+    ("print", Types.Forall ([ 0 ], Types.TyArrow (Types.TyVar 0, Types.TyUnit)));
+  ]
+
+let io_runtime_bindings =
+  [
+    ("read_line", Value.native "read_line" native_read_line);
+    ("read_int", Value.native "read_int" native_read_int);
+    ("print", Value.native "print" native_print);
+  ]
+
 let cached_type_env =
   lazy
-    (match Typecheck.typecheck_program (prelude_ast ()) with
-    | Ok typed_prog -> typed_prog.env
-    | Error diags ->
-        let msgs =
-          String.concat "; " (List.map (fun (d : Diagnostic.t) -> d.message) diags)
-        in
-        failwith ("Failed to typecheck prelude: " ^ msgs))
+    (let base_env =
+       match Typecheck.typecheck_program (prelude_ast ()) with
+       | Ok typed_prog -> typed_prog.env
+       | Error diags ->
+           let msgs =
+             String.concat "; " (List.map (fun (d : Diagnostic.t) -> d.message) diags)
+           in
+           failwith ("Failed to typecheck prelude: " ^ msgs)
+     in
+     List.fold_left
+       (fun env (name, scheme) -> Type_env.extend name scheme env)
+       base_env io_type_bindings)
 
 let default_type_env () = Lazy.force cached_type_env
 
 let cached_eval_env =
   lazy
-    (match Eval.eval_program_with_stats (prelude_core ()) with
-    | Ok outcome -> outcome.env
-    | Error err -> failwith ("Failed to evaluate prelude: " ^ err.message))
+    (let base_env =
+       match Eval.eval_program_with_stats (prelude_core ()) with
+       | Ok outcome -> outcome.env
+       | Error err -> failwith ("Failed to evaluate prelude: " ^ err.message)
+     in
+     List.fold_left
+       (fun env (name, v) -> Env.extend name v env)
+       base_env io_runtime_bindings)
 
 let default_eval_env () = Lazy.force cached_eval_env
 
 let cached_vm_env =
   lazy
-    (match Compiler.compile (prelude_ast ()) with
-    | Ok chunk -> (
-        match Vm.run_outcome chunk with
-        | Ok outcome -> outcome.env
-        | Error diag -> failwith ("Failed to evaluate prelude VM: " ^ diag.message))
-    | Error err -> failwith ("Failed to compile prelude: " ^ err.message))
+    (let base_env =
+       match Compiler.compile (prelude_ast ()) with
+       | Ok chunk -> (
+           match Vm.run_outcome chunk with
+           | Ok outcome -> outcome.env
+           | Error diag -> failwith ("Failed to evaluate prelude VM: " ^ diag.message))
+       | Error err -> failwith ("Failed to compile prelude: " ^ err.message)
+     in
+     List.fold_left
+       (fun env (name, v) -> Env.extend name v env)
+       base_env io_runtime_bindings)
 
 let default_vm_env () = Lazy.force cached_vm_env
 
