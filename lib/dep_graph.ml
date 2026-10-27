@@ -167,36 +167,9 @@ let scan_imports_from_string ~file (content : string) :
   scan 1 false [] lines
 
 let scan_imports_from_file (file_path : string) : (import_info list, Ast.error) result =
-  let dummy_span =
-    match
-      Ast.create_span ~file:file_path ~start_line:1 ~start_col:1 ~end_line:1 ~end_col:1
-    with
-    | Ok s -> s
-    | Error _ -> Ast.dummy_span
-  in
-  try
-    let ic = open_in file_path in
-    let len = in_channel_length ic in
-    let content = really_input_string ic len in
-    close_in ic;
-    scan_imports_from_string ~file:file_path content
-  with
-  | Sys_error msg ->
-      Error
-        {
-          Ast.code = Some Error_code.E0001_io_error;
-          span = dummy_span;
-          message = Printf.sprintf "I/O error reading file '%s': %s" file_path msg;
-        }
-  | exn ->
-      Error
-        {
-          Ast.code = Some Error_code.E0001_io_error;
-          span = dummy_span;
-          message =
-            Printf.sprintf "Unexpected failure reading file '%s': %s" file_path
-              (Printexc.to_string exn);
-        }
+  match Driver.read_file file_path with
+  | Ok content -> scan_imports_from_string ~file:file_path content
+  | Error diag -> Error (Diagnostic.to_ast_error diag)
 
 (** {1 Graph Construction} *)
 
