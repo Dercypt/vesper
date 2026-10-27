@@ -297,7 +297,95 @@ let test_interface_conformance () =
   let missing_conf =
     Module_check.check_interface_conformance ~impl_ns ~interface:missing_sig
   in
-  Alcotest.(check bool) "Missing value detected" true (Result.is_error missing_conf)
+  Alcotest.(check bool) "Missing value detected" true (Result.is_error missing_conf);
+
+  (* Polymorphic interface vs less general implementation (Law 1, soundness) *)
+  let mono_impl_ns =
+    Namespace.bind_val ~name:"id"
+      ~scheme:(Types.Forall ([], Types.TyArrow (Types.TyInt, Types.TyInt)))
+      ~span:test_span Namespace.empty
+  in
+  let poly_id_spec =
+    make_val_spec ~span:test_span ~name:"id"
+      ~ty:(Types.TyArrow (Types.TyVar 0, Types.TyVar 0))
+  in
+  let poly_id_sig = make_sig_body ~span:test_span [ SigVal poly_id_spec ] in
+  let unsound_conf =
+    Module_check.check_interface_conformance ~impl_ns:mono_impl_ns ~interface:poly_id_sig
+  in
+  Alcotest.(check bool)
+    "Monomorphic implementation rejected for polymorphic interface" true
+    (Result.is_error unsound_conf);
+  let d_unsound = List.hd (Result.get_error unsound_conf) in
+  Alcotest.(check bool)
+    "E4003 on unsound conformance" true
+    (Error_code.equal d_unsound.Diagnostic.code Error_code.E4003_interface_mismatch);
+
+  (* Polymorphic implementation satisfies polymorphic interface *)
+  let poly_impl_ns =
+    Namespace.bind_val ~name:"id"
+      ~scheme:(Types.Forall ([ 0 ], Types.TyArrow (Types.TyVar 0, Types.TyVar 0)))
+      ~span:test_span Namespace.empty
+  in
+  let sound_poly_conf =
+    Module_check.check_interface_conformance ~impl_ns:poly_impl_ns ~interface:poly_id_sig
+  in
+  Alcotest.(check bool)
+    "Polymorphic implementation satisfies polymorphic interface" true
+    (Result.is_ok sound_poly_conf);
+
+  (* Polymorphic implementation satisfies monomorphic interface *)
+  let mono_id_spec =
+    make_val_spec ~span:test_span ~name:"id"
+      ~ty:(Types.TyArrow (Types.TyInt, Types.TyInt))
+  in
+  let mono_id_sig = make_sig_body ~span:test_span [ SigVal mono_id_spec ] in
+  let sound_mono_conf =
+    Module_check.check_interface_conformance ~impl_ns:poly_impl_ns ~interface:mono_id_sig
+  in
+  Alcotest.(check bool)
+    "Polymorphic implementation satisfies monomorphic interface" true
+    (Result.is_ok sound_mono_conf);
+
+  (* Multiple polymorphic type variables: 'a -> 'b -> 'a *)
+  let const_spec =
+    make_val_spec ~span:test_span ~name:"const"
+      ~ty:(Types.TyArrow (Types.TyVar 0, Types.TyArrow (Types.TyVar 1, Types.TyVar 0)))
+  in
+  let const_sig = make_sig_body ~span:test_span [ SigVal const_spec ] in
+  let const_impl_ns =
+    Namespace.bind_val ~name:"const"
+      ~scheme:
+        (Types.Forall
+           ( [ 0; 1 ],
+             Types.TyArrow (Types.TyVar 0, Types.TyArrow (Types.TyVar 1, Types.TyVar 0))
+           ))
+      ~span:test_span Namespace.empty
+  in
+  let sound_const_conf =
+    Module_check.check_interface_conformance ~impl_ns:const_impl_ns ~interface:const_sig
+  in
+  Alcotest.(check bool)
+    "Valid const implementation satisfies interface" true
+    (Result.is_ok sound_const_conf);
+
+  (* Wrong return type in const: provides 'a -> 'b -> 'b *)
+  let bad_const_impl_ns =
+    Namespace.bind_val ~name:"const"
+      ~scheme:
+        (Types.Forall
+           ( [ 0; 1 ],
+             Types.TyArrow (Types.TyVar 0, Types.TyArrow (Types.TyVar 1, Types.TyVar 1))
+           ))
+      ~span:test_span Namespace.empty
+  in
+  let bad_const_conf =
+    Module_check.check_interface_conformance ~impl_ns:bad_const_impl_ns
+      ~interface:const_sig
+  in
+  Alcotest.(check bool)
+    "Invalid const implementation rejected" true
+    (Result.is_error bad_const_conf)
 
 let find_fixture_dir () =
   if Sys.file_exists "tests/fixtures/modules/math.vesperi" then "tests/fixtures/modules"

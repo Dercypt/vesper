@@ -15,6 +15,26 @@ type checked_project = {
   root_env : Namespace.t;
 }
 
+let skolemize_type (ty : Types.t) : Types.t =
+  let skolem_map = ref [] in
+  let rec loop = function
+    | Types.TyInt -> Types.TyInt
+    | Types.TyBool -> Types.TyBool
+    | Types.TyString -> Types.TyString
+    | Types.TyUnit -> Types.TyUnit
+    | Types.TyArrow (t1, t2) -> Types.TyArrow (loop t1, loop t2)
+    | Types.TyVar id -> (
+        if id < 0 then Types.TyVar id
+        else
+          match List.assoc_opt id !skolem_map with
+          | Some neg_id -> Types.TyVar neg_id
+          | None ->
+              let neg_id = -(List.length !skolem_map + 1) in
+              skolem_map := (id, neg_id) :: !skolem_map;
+              Types.TyVar neg_id)
+  in
+  loop ty
+
 let rec check_interface_conformance ~(impl_ns : Namespace.t)
     ~(interface : Mod_ast.mod_sig) : (unit, Diagnostic.t list) result =
   let diags = ref [] in
@@ -43,7 +63,8 @@ let rec check_interface_conformance ~(impl_ns : Namespace.t)
                   :: !diags
             | Some val_entry -> (
                 let inst_ty = Type_env.instantiate fresh val_entry.scheme in
-                match Unify.unify ~span:spec.span inst_ty spec.ty with
+                let frozen_spec_ty = skolemize_type spec.ty in
+                match Unify.unify ~span:spec.span inst_ty frozen_spec_ty with
                 | Ok _ -> ()
                 | Error _ ->
                     let msg =
