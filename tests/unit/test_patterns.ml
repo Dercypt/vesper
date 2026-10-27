@@ -588,6 +588,100 @@ let test_deterministic_evaluation () =
       (r_iter = Ok (Value.int 30))
   done
 
+let test_multicolumn_wildcard_column_preservation () =
+  let sig_env = standard_sig_env in
+  let span = test_span in
+  let env = Env.empty in
+
+  (* Multi-column matrix test: Cons(_, Cons(0, Nil)) before Cons(99, _) *)
+  let clauses =
+    [
+      make_clause ~span
+        (construct ~span "Cons"
+           [
+             wildcard ~span;
+             construct ~span "Cons" [ int ~span 0; construct ~span "Nil" [] ];
+           ])
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "first")));
+      make_clause ~span
+        (construct ~span "Cons" [ int ~span 99; wildcard ~span ])
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "second")));
+      make_clause ~span (wildcard ~span)
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "fallback")));
+    ]
+  in
+
+  (* 1. Input: Cons(42, Cons(0, Nil)) matches the first clause *)
+  let val_first =
+    Value.construct "Cons"
+      [ Value.int 42; Value.construct "Cons" [ Value.int 0; Value.construct "Nil" [] ] ]
+  in
+  let r_first = Pat_compile.eval_match ~sig_env ~span env val_first clauses in
+  Alcotest.(check bool)
+    "Cons(42, Cons(0, Nil)) matches first clause" true
+    (r_first = Ok (Value.string "first"));
+
+  (* 2. Input: Cons(99, Nil) matches the second clause because 99 matches *)
+  let val_second = Value.construct "Cons" [ Value.int 99; Value.construct "Nil" [] ] in
+  let r_second = Pat_compile.eval_match ~sig_env ~span env val_second clauses in
+  Alcotest.(check bool)
+    "Cons(99, Nil) matches second clause" true
+    (r_second = Ok (Value.string "second"));
+
+  (* 3. Input: Cons(42, Nil) must NOT match second clause because 42 != 99; falls back *)
+  let val_other = Value.construct "Cons" [ Value.int 42; Value.construct "Nil" [] ] in
+  let r_other = Pat_compile.eval_match ~sig_env ~span env val_other clauses in
+  Alcotest.(check bool)
+    "Cons(42, Nil) preserves 99 check and falls back" true
+    (r_other = Ok (Value.string "fallback"));
+
+  (* 4. Guarded tuple matching: (x, y) when y > 0 before (99, _) *)
+  let guard_y_gt_0 =
+    Core_ir.make_expr ~span
+      (Core_ir.PrimOp
+         {
+           op = Core_ir.Gt;
+           args =
+             [
+               Core_ir.make_expr ~span (Core_ir.Var "y");
+               Core_ir.make_expr ~span (Core_ir.Lit (Ast.Int 0));
+             ];
+         })
+  in
+  let tuple_clauses =
+    [
+      make_clause ~span ~guard:guard_y_gt_0
+        (tuple ~span [ var ~span "x"; var ~span "y" ])
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "guarded")));
+      make_clause ~span
+        (tuple ~span [ int ~span 99; wildcard ~span ])
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "ninety-nine")));
+      make_clause ~span (wildcard ~span)
+        (Core_ir.make_expr ~span (Core_ir.Lit (Ast.String "other")));
+    ]
+  in
+
+  (* (10, 5) satisfies guard y > 0 *)
+  let tup_pos = Value.construct "(tuple)" [ Value.int 10; Value.int 5 ] in
+  let r_tup_pos = Pat_compile.eval_match ~sig_env ~span env tup_pos tuple_clauses in
+  Alcotest.(check bool)
+    "(10, 5) matches guarded tuple" true
+    (r_tup_pos = Ok (Value.string "guarded"));
+
+  (* (99, 0) fails guard (0 not > 0), falls through to (99, _) and matches ninety-nine *)
+  let tup_99 = Value.construct "(tuple)" [ Value.int 99; Value.int 0 ] in
+  let r_tup_99 = Pat_compile.eval_match ~sig_env ~span env tup_99 tuple_clauses in
+  Alcotest.(check bool)
+    "(99, 0) falls through guard and matches 99 check" true
+    (r_tup_99 = Ok (Value.string "ninety-nine"));
+
+  (* (42, 0) fails guard and does not match 99, falls through to other *)
+  let tup_42 = Value.construct "(tuple)" [ Value.int 42; Value.int 0 ] in
+  let r_tup_42 = Pat_compile.eval_match ~sig_env ~span env tup_42 tuple_clauses in
+  Alcotest.(check bool)
+    "(42, 0) falls through guard and rejects non-99" true
+    (r_tup_42 = Ok (Value.string "other"))
+
 let test_law1_host_isolation () =
   let sig_env = standard_sig_env in
   let span = test_span in
@@ -652,6 +746,8 @@ let () =
         [
           test_case "Runtime matching, closures, recursion, and Law 5" `Quick
             test_deterministic_evaluation;
+          test_case "Multi-column wildcard column preservation" `Quick
+            test_multicolumn_wildcard_column_preservation;
         ] );
       ( "Host Isolation & Safety",
         [
