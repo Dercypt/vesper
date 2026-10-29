@@ -31,6 +31,12 @@ rule token = parse
         block_comment start_pos 1 lexbuf;
         token lexbuf
       }
+  | "(*"
+      {
+        let start_pos = Lexing.lexeme_start_p lexbuf in
+        ml_comment start_pos 1 lexbuf;
+        token lexbuf
+      }
   | digit+ as raw
       {
         match int_of_string_opt raw with
@@ -190,3 +196,24 @@ and block_comment start_pos depth = parse
       }
   | _
       { block_comment start_pos depth lexbuf }
+
+and ml_comment start_pos depth = parse
+  | "(*"
+      { ml_comment start_pos (depth + 1) lexbuf }
+  | "*)"
+      { if depth = 1 then () else ml_comment start_pos (depth - 1) lexbuf }
+  | '\n'
+      { Lexing.new_line lexbuf; ml_comment start_pos depth lexbuf }
+  | eof
+      {
+        let span = Ast.span_of_positions (start_pos, Lexing.lexeme_end_p lexbuf) in
+        raise
+          (Error
+             {
+               Ast.code = Some Error_code.E1003_unclosed_comment;
+               span;
+               message = "Unclosed block comment";
+             })
+      }
+  | _
+      { ml_comment start_pos depth lexbuf }

@@ -107,13 +107,21 @@ let scan_imports_from_string ~file (content : string) :
         let len = String.length trimmed in
         if len = 0 then scan (line_num + 1) in_block_comment acc rest
         else if in_block_comment then
-          match String.split_on_char '*' trimmed with
-          | _ when String.length trimmed >= 2 && String.sub trimmed (len - 2) 2 = "*)" ->
-              scan (line_num + 1) false acc rest
-          | _ -> scan (line_num + 1) true acc rest
-        else if len >= 2 && String.sub trimmed 0 2 = "(*" then
-          if len >= 4 && String.sub trimmed (len - 2) 2 = "*)" then
-            scan (line_num + 1) false acc rest
+          let is_end =
+            (len >= 2 && String.sub trimmed (len - 2) 2 = "*)")
+            || (len >= 2 && String.sub trimmed (len - 2) 2 = "*/")
+          in
+          if is_end then scan (line_num + 1) false acc rest
+          else scan (line_num + 1) true acc rest
+        else if
+          (len >= 2 && String.sub trimmed 0 2 = "(*")
+          || (len >= 2 && String.sub trimmed 0 2 = "/*")
+        then
+          let is_single_line_block =
+            (len >= 4 && String.sub trimmed (len - 2) 2 = "*)")
+            || (len >= 4 && String.sub trimmed (len - 2) 2 = "*/")
+          in
+          if is_single_line_block then scan (line_num + 1) false acc rest
           else scan (line_num + 1) true acc rest
         else if (len >= 2 && String.sub trimmed 0 2 = "//") || trimmed.[0] = '#' then
           scan (line_num + 1) false acc rest

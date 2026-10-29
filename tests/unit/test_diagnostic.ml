@@ -90,6 +90,7 @@ let test_lexer_error_codes () =
   in
   check_code "\"unterminated string" Error_code.E1002_unterminated_string;
   check_code "/* unclosed comment" Error_code.E1003_unclosed_comment;
+  check_code "(* unclosed ocaml comment" Error_code.E1003_unclosed_comment;
   check_code "\"invalid \\q escape\"" Error_code.E1004_invalid_escape;
   check_code "@" Error_code.E1005_unexpected_char;
   check_code "9999999999999999999999999999999999" Error_code.E1006_integer_overflow

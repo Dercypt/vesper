@@ -254,6 +254,7 @@ let test_structured_error_codes () =
   in
   check_err "\"invalid \\q escape\"" Error_code.E1004_invalid_escape;
   check_err "/* unclosed comment" Error_code.E1003_unclosed_comment;
+  check_err "(* unclosed ocaml comment" Error_code.E1003_unclosed_comment;
   check_err "@" Error_code.E1005_unexpected_char;
   check_err "9999999999999999999999999999999999" Error_code.E1006_integer_overflow;
 

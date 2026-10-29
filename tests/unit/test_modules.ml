@@ -111,6 +111,22 @@ let test_import_scanner () =
     [ "Math"; "Prelude"; "Data"; "Collections" ]
     mod_names;
 
+  (* Comment tolerance: both /* ... */ and (* ... *) block comments are skipped *)
+  let commented_code =
+    "/* import Ignored1\n\
+     open Ignored2 */\n\
+     (* import Ignored3\n\
+     open Ignored4 *)\n\
+     import RealModule\n"
+  in
+  let commented_imports =
+    Result.get_ok
+      (Dep_graph.scan_imports_from_string ~file:"commented.vesper" commented_code)
+  in
+  Alcotest.(check (list string))
+    "Only real imports extracted, block comments ignored" [ "RealModule" ]
+    (List.map (fun (i : Dep_graph.import_info) -> i.module_name) commented_imports);
+
   (* Edge cases: empty module name after import / open (Law 1 isolation) *)
   let edge_code = "import ;\nopen ;\nfrom ; import ;\nimport ;;; \n" in
   let edge_imports =
@@ -621,6 +637,33 @@ let test_val_def_annot () =
   let res_fact = Module_check.check_module unit_fact in
   Alcotest.(check bool) "Annotated recursive function passes" true (Result.is_ok res_fact)
 
+let test_parse_implementation_line_numbers () =
+  let code_with_syntax_err =
+    "import Math\n\
+     import Data.Vector as Vec\n\
+     // Comment line\n\
+     /* Block comment line */\n\n\
+     let x = 10 + ;\n"
+  in
+  match Mod_ast.parse_implementation ~file:"test_err.vesper" code_with_syntax_err with
+  | Ok _ -> Alcotest.fail "Expected syntax error on line 6"
+  | Error err -> (
+      Alcotest.(check int)
+        "Diagnostic error preserves accurate source line number (line 6)" 6
+        err.span.start_line;
+
+      let code_valid = "import Math\n// Comment line\n\nlet answer = 42;\n" in
+      match Mod_ast.parse_implementation ~file:"test_valid.vesper" code_valid with
+      | Error err -> Alcotest.fail ("Failed to parse valid module: " ^ err.message)
+      | Ok (ModStruct { items; _ }) -> (
+          match items with
+          | [ ModImport _; ModVal val_def ] ->
+              Alcotest.(check int)
+                "Declaration span preserves accurate source line number (line 4)" 4
+                val_def.span.start_line
+          | _ -> Alcotest.fail "Unexpected items structure")
+      | Ok _ -> Alcotest.fail "Expected ModStruct")
+
 let () =
   Alcotest.run "Vesper Module System Unit Tests"
     [
@@ -629,6 +672,8 @@ let () =
           Alcotest.test_case "Qualified path lookups and spans" `Quick
             test_path_operations;
           Alcotest.test_case "AST validation and laws" `Quick test_ast_validation_and_laws;
+          Alcotest.test_case "parse_implementation preserves accurate source line numbers"
+            `Quick test_parse_implementation_line_numbers;
         ] );
       ( "Dependency Graph & Cycles",
         [

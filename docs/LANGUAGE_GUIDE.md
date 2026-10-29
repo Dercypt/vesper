@@ -6,7 +6,8 @@ Top-level declarations end with `;`. Expressions are evaluated and returned.
 
 ```vesper
 // Single-line comment
-(* Multi-line
+/* C-style multi-line comment */
+(* OCaml-style multi-line
    comment *)
 
 let x = 42;

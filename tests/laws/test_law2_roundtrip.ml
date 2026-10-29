@@ -194,12 +194,14 @@ let test_comments_and_whitespace () =
      let x = 10; // Inline comment\n\
      /* Block comment */\n\
      let y = /* Nested /* comment */ here */ 20;\n\
-     x + y;\n"
+     (* OCaml-style block comment *)\n\
+     let z = (* Nested (* comment *) here *) 30;\n\
+     x + y + z;\n"
   in
   match Parse_facade.parse_string ~file:"comments.vesper" src with
   | Error err ->
       Alcotest.fail (Printf.sprintf "Failed to parse input with comments: %s" err.message)
-  | Ok prog -> Alcotest.(check int) "Parses 3 declarations" 3 (List.length prog.decls)
+  | Ok prog -> Alcotest.(check int) "Parses 4 declarations" 4 (List.length prog.decls)
 
 let test_negative_literal_rejection () =
   let neg_expr = { span = dummy_loc; desc = Lit (Int (-5)) } in
