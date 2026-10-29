@@ -841,9 +841,9 @@ let parse_interface ~file (content : string) : (mod_sig, Ast.error) result =
 
 let parse_implementation ~file (content : string) : (mod_expr, Ast.error) result =
   let lines = String.split_on_char '\n' content in
-  let rec extract_headers line_num items_acc remaining_lines =
+  let rec extract_headers line_num items_acc blanks_acc remaining_lines =
     match remaining_lines with
-    | [] -> (List.rev items_acc, [])
+    | [] -> (List.rev items_acc, List.rev blanks_acc)
     | raw_line :: rest -> (
         let trimmed = String.trim raw_line in
         if
@@ -852,7 +852,7 @@ let parse_implementation ~file (content : string) : (mod_expr, Ast.error) result
           || (String.length trimmed >= 2 && String.sub trimmed 0 2 = "/*")
           || (String.length trimmed >= 2 && String.sub trimmed 0 2 = "(*")
           || trimmed.[0] = '#'
-        then extract_headers (line_num + 1) items_acc rest
+        then extract_headers (line_num + 1) items_acc ("" :: blanks_acc) rest
         else
           let span =
             match
@@ -870,30 +870,30 @@ let parse_implementation ~file (content : string) : (mod_expr, Ast.error) result
               match parse_path ~span path_str with
               | Ok path ->
                   let it = ModImport { path; alias = None; span } in
-                  extract_headers (line_num + 1) (it :: items_acc) rest
-              | Error _ -> (List.rev items_acc, remaining_lines))
+                  extract_headers (line_num + 1) (it :: items_acc) ("" :: blanks_acc) rest
+              | Error _ -> (List.rev items_acc, List.rev blanks_acc @ remaining_lines))
           | [ "import"; path_str; "as"; alias ] -> (
               match parse_path ~span path_str with
               | Ok path ->
                   let it = ModImport { path; alias = Some alias; span } in
-                  extract_headers (line_num + 1) (it :: items_acc) rest
-              | Error _ -> (List.rev items_acc, remaining_lines))
+                  extract_headers (line_num + 1) (it :: items_acc) ("" :: blanks_acc) rest
+              | Error _ -> (List.rev items_acc, List.rev blanks_acc @ remaining_lines))
           | [ "open"; path_str ] -> (
               match parse_path ~span path_str with
               | Ok path ->
                   let it = ModOpen { path; span } in
-                  extract_headers (line_num + 1) (it :: items_acc) rest
-              | Error _ -> (List.rev items_acc, remaining_lines))
+                  extract_headers (line_num + 1) (it :: items_acc) ("" :: blanks_acc) rest
+              | Error _ -> (List.rev items_acc, List.rev blanks_acc @ remaining_lines))
           | "type" :: name :: "=" :: type_words -> (
               let type_str = String.concat " " type_words in
               match parse_type_str ~span type_str with
               | Ok ty ->
                   let it = ModType { name; params = []; ty; span } in
-                  extract_headers (line_num + 1) (it :: items_acc) rest
-              | Error _ -> (List.rev items_acc, remaining_lines))
-          | _ -> (List.rev items_acc, remaining_lines))
+                  extract_headers (line_num + 1) (it :: items_acc) ("" :: blanks_acc) rest
+              | Error _ -> (List.rev items_acc, List.rev blanks_acc @ remaining_lines))
+          | _ -> (List.rev items_acc, List.rev blanks_acc @ remaining_lines))
   in
-  let header_items, code_lines = extract_headers 1 [] lines in
+  let header_items, code_lines = extract_headers 1 [] [] lines in
   let code_text = String.concat "\n" code_lines in
   let trimmed_code = String.trim code_text in
   let span =
