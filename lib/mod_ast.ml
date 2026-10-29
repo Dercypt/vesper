@@ -785,6 +785,7 @@ let parse_interface ~file (content : string) : (mod_sig, Ast.error) result =
         if
           String.length trimmed = 0
           || (String.length trimmed >= 2 && String.sub trimmed 0 2 = "//")
+          || (String.length trimmed >= 2 && String.sub trimmed 0 2 = "/*")
           || (String.length trimmed >= 2 && String.sub trimmed 0 2 = "(*")
           || trimmed.[0] = '#'
         then process_lines (line_num + 1) acc rest
@@ -848,6 +849,7 @@ let parse_implementation ~file (content : string) : (mod_expr, Ast.error) result
         if
           String.length trimmed = 0
           || (String.length trimmed >= 2 && String.sub trimmed 0 2 = "//")
+          || (String.length trimmed >= 2 && String.sub trimmed 0 2 = "/*")
           || (String.length trimmed >= 2 && String.sub trimmed 0 2 = "(*")
           || trimmed.[0] = '#'
         then extract_headers (line_num + 1) items_acc rest

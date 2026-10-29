@@ -111,6 +111,22 @@ let test_import_scanner () =
     [ "Math"; "Prelude"; "Data"; "Collections" ]
     mod_names;
 
+  (* Comment tolerance: both /* ... */ and (* ... *) block comments are skipped *)
+  let commented_code =
+    "/* import Ignored1\n\
+     open Ignored2 */\n\
+     (* import Ignored3\n\
+     open Ignored4 *)\n\
+     import RealModule\n"
+  in
+  let commented_imports =
+    Result.get_ok
+      (Dep_graph.scan_imports_from_string ~file:"commented.vesper" commented_code)
+  in
+  Alcotest.(check (list string))
+    "Only real imports extracted, block comments ignored" [ "RealModule" ]
+    (List.map (fun (i : Dep_graph.import_info) -> i.module_name) commented_imports);
+
   (* Edge cases: empty module name after import / open (Law 1 isolation) *)
   let edge_code = "import ;\nopen ;\nfrom ; import ;\nimport ;;; \n" in
   let edge_imports =
