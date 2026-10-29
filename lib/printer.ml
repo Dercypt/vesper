@@ -43,6 +43,7 @@ let rec expr_to_string_with_prec (min_prec : int) (e : expr) : string =
     | Lit (Int n) -> if n < 0 then Printf.sprintf "(%d)" n else string_of_int n
     | Lit (Bool b) -> string_of_bool b
     | Lit (String str) -> escape_string str
+    | Lit Unit -> "()"
     | Var name -> name
     | Unary { op; arg } ->
         let op_str = unop_to_string op in

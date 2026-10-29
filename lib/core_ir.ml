@@ -1,4 +1,4 @@
-type literal = Ast.literal = Int of int | Bool of bool | String of string
+type literal = Ast.literal = Int of int | Bool of bool | String of string | Unit
 type primop = Add | Sub | Mul | Div | Mod | Eq | Neq | Lt | Le | Gt | Ge | Neg | Not
 
 let primop_to_string = function
@@ -53,7 +53,7 @@ let rec validate_expr (e : expr) : (unit, Ast.error) result =
       }
   else
     match e.desc with
-    | Lit (Int _) | Lit (Bool _) | Lit (String _) -> Ok ()
+    | Lit (Int _) | Lit (Bool _) | Lit (String _) | Lit Unit -> Ok ()
     | Var name ->
         if String.length name = 0 then
           Error
@@ -161,6 +161,7 @@ let rec expr_equal (e1 : expr) (e2 : expr) : bool =
   | Lit (Int i1), Lit (Int i2) -> i1 = i2
   | Lit (Bool b1), Lit (Bool b2) -> b1 = b2
   | Lit (String s1), Lit (String s2) -> String.equal s1 s2
+  | Lit Unit, Lit Unit -> true
   | Var v1, Var v2 -> String.equal v1 v2
   | Let l1, Let l2 ->
       String.equal l1.name l2.name && l1.is_rec = l2.is_rec
@@ -192,6 +193,7 @@ let rec pp_expr (fmt : Format.formatter) (e : expr) : unit =
   | Lit (Int n) -> Format.fprintf fmt "%d" n
   | Lit (Bool b) -> Format.fprintf fmt "%b" b
   | Lit (String s) -> Format.fprintf fmt "%S" s
+  | Lit Unit -> Format.fprintf fmt "()"
   | Var id -> Format.fprintf fmt "%s" id
   | Let { name; is_rec; value; body } ->
       let rec_kw = if is_rec then " rec" else "" in

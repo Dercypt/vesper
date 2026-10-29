@@ -101,6 +101,7 @@ let rec pp fmt = function
                | Ast.Int n -> string_of_int n
                | Ast.Bool b -> string_of_bool b
                | Ast.String s -> Printf.sprintf "%S" s
+               | Ast.Unit -> "()"
              in
              Format.fprintf fmt "%s => %a" lit_str pp tr))
         cases
@@ -633,6 +634,7 @@ let rec eval_tree ?(fuel = 10000) (env : Env.t) (root_val : Value.t)
                 | Ast.Int n, Value.VInt vn -> n = vn
                 | Ast.Bool b, Value.VBool vb -> b = vb
                 | Ast.String s, Value.VString vs -> String.equal s vs
+                | Ast.Unit, Value.VUnit -> true
                 | _ -> false
               in
               if lit_matches then eval_tree ~fuel:(fuel - 1) env root_val subtree

@@ -14,7 +14,7 @@ val make_error : ?code:Error_code.t -> span:span -> string -> error
 (** Constructs an [error] with optional error code, span provenance, and message. *)
 
 (** Literals supported by Vesper. *)
-type literal = Int of int | Bool of bool | String of string
+type literal = Int of int | Bool of bool | String of string | Unit
 
 (** Binary operators. *)
 type binop = Add | Sub | Mul | Div | Mod | Eq | Neq | Lt | Le | Gt | Ge | And | Or

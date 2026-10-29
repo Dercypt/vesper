@@ -79,10 +79,11 @@ let rec gen_expr depth : expr =
 
 and gen_leaf () : expr =
   let desc =
-    match Random.int 4 with
+    match Random.int 5 with
     | 0 -> Lit (Int (Random.int 10000))
     | 1 -> Lit (Bool (Random.bool ()))
     | 2 -> Lit (String (random_string ()))
+    | 3 -> Lit Unit
     | _ -> Var (random_var ())
   in
   { span = dummy_loc; desc }

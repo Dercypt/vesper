@@ -47,6 +47,10 @@ type clause = {
 val wildcard : span:Ast.span -> pattern
 val var : span:Ast.span -> string -> pattern
 val lit : span:Ast.span -> Ast.literal -> pattern
+
+val unit : span:Ast.span -> pattern
+(** Constructs a unit literal pattern [()]. *)
+
 val int : span:Ast.span -> int -> pattern
 val bool : span:Ast.span -> bool -> pattern
 val string : span:Ast.span -> string -> pattern

@@ -101,6 +101,11 @@ and compile_expr_into builder (e : Core_ir.expr) : (unit, Ast.error) result =
       ignore (emit builder ~span:e.span (Opcode.Op_Const c));
       incr builder.stack_depth;
       Ok ()
+  | Lit Unit ->
+      let c = add_constant builder Value.VUnit in
+      ignore (emit builder ~span:e.span (Opcode.Op_Const c));
+      incr builder.stack_depth;
+      Ok ()
   | Var name ->
       (match resolve_local builder name with
       | Some slot -> ignore (emit builder ~span:e.span (Opcode.Op_GetLocal slot))

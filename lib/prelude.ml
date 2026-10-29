@@ -87,9 +87,15 @@ let native_read_int arg =
     let line = String.trim (input_line stdin) in
     match int_of_string_opt line with
     | Some n -> Ok (Value.VInt n)
-    | None -> Ok (Value.VInt 0)
+    | None ->
+        Error
+          (Diagnostic.error ~code:Error_code.E0001_io_error ~span:Ast.dummy_span
+             (Printf.sprintf "Invalid integer input: '%s'" line))
   with
-  | End_of_file -> Ok (Value.VInt 0)
+  | End_of_file ->
+      Error
+        (Diagnostic.error ~code:Error_code.E0001_io_error ~span:Ast.dummy_span
+           "Unexpected end of file while reading integer")
   | Sys_error msg ->
       Error
         (Diagnostic.error ~code:Error_code.E0001_io_error ~span:Ast.dummy_span
@@ -108,8 +114,8 @@ let native_print arg =
 
 let io_type_bindings =
   [
-    ("read_line", Types.Forall ([ 0 ], Types.TyArrow (Types.TyVar 0, Types.TyString)));
-    ("read_int", Types.Forall ([ 0 ], Types.TyArrow (Types.TyVar 0, Types.TyInt)));
+    ("read_line", Types.Forall ([], Types.TyArrow (Types.TyString, Types.TyString)));
+    ("read_int", Types.Forall ([], Types.TyArrow (Types.TyString, Types.TyInt)));
     ("print", Types.Forall ([ 0 ], Types.TyArrow (Types.TyVar 0, Types.TyUnit)));
   ]
 

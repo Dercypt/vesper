@@ -81,6 +81,7 @@ let rec infer_internal (fresh : unit -> Types.t) (env : Type_env.t) (e : Ast.exp
     | Ast.Lit (Int _) -> Ok (Types.empty_subst, Types.TyInt, [])
     | Ast.Lit (Bool _) -> Ok (Types.empty_subst, Types.TyBool, [])
     | Ast.Lit (String _) -> Ok (Types.empty_subst, Types.TyString, [])
+    | Ast.Lit Unit -> Ok (Types.empty_subst, Types.TyUnit, [])
     | Ast.Var name -> (
         match Type_env.lookup name env with
         | Some scheme ->

@@ -193,6 +193,8 @@ atomic_expr:
     { { span = Ast.span_of_positions $loc; desc = Lit (Bool b) } }
   | s = STRING
     { { span = Ast.span_of_positions $loc; desc = Lit (String s) } }
+  | LPAREN RPAREN
+    { { span = Ast.span_of_positions $loc; desc = Lit Unit } }
   | id = IDENT
     { { span = Ast.span_of_positions $loc; desc = Var id } }
   | LPAREN e = expr RPAREN

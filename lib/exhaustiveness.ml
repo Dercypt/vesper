@@ -12,6 +12,7 @@ type head_ctor =
   | CtorBool of bool
   | CtorInt of int
   | CtorString of string
+  | CtorUnit
   | CtorTuple of int
 
 let ctor_equal (a : head_ctor) (b : head_ctor) : bool =
@@ -20,6 +21,7 @@ let ctor_equal (a : head_ctor) (b : head_ctor) : bool =
   | CtorBool b1, CtorBool b2 -> b1 = b2
   | CtorInt i1, CtorInt i2 -> i1 = i2
   | CtorString s1, CtorString s2 -> String.equal s1 s2
+  | CtorUnit, CtorUnit -> true
   | CtorTuple t1, CtorTuple t2 -> t1 = t2
   | _ -> false
 
@@ -30,6 +32,7 @@ let head_ctor_of_pattern (sig_env : Pattern.signature_env) (p : Pattern.pattern)
   | PLit (Bool b) -> Some (CtorBool b)
   | PLit (Int n) -> Some (CtorInt n)
   | PLit (String s) -> Some (CtorString s)
+  | PLit Unit -> Some CtorUnit
   | PTuple elems -> Some (CtorTuple (List.length elems))
   | PRecord fields -> (
       match fields with
@@ -73,6 +76,7 @@ let specialize_row (target : head_ctor) (row : Pattern.pattern list) :
       | CtorInt i_target, PLit (Int i) -> if i_target = i then Some rest else None
       | CtorString s_target, PLit (String s) ->
           if String.equal s_target s then Some rest else None
+      | CtorUnit, PLit Unit -> Some rest
       | CtorTuple t_target, PTuple elems ->
           if t_target = List.length elems then Some (elems @ rest) else None
       | Ctor (c_name, _), PRecord fields ->
@@ -85,7 +89,8 @@ let specialize_row (target : head_ctor) (row : Pattern.pattern list) :
       | Ctor (_, arity), (PWildcard | PVar _) ->
           let wilds = List.init arity (fun _ -> Pattern.wildcard ~span:p.span) in
           Some (wilds @ rest)
-      | (CtorBool _ | CtorInt _ | CtorString _), (PWildcard | PVar _) -> Some rest
+      | (CtorBool _ | CtorInt _ | CtorString _ | CtorUnit), (PWildcard | PVar _) ->
+          Some rest
       | CtorTuple arity, (PWildcard | PVar _) ->
           let wilds = List.init arity (fun _ -> Pattern.wildcard ~span:p.span) in
           Some (wilds @ rest)
@@ -136,6 +141,7 @@ let check_signature (sig_env : Pattern.signature_env) (ctors : head_ctor list)
       if has_true && has_false then Complete [ CtorBool true; CtorBool false ]
       else if not has_true then Incomplete [ CtorBool true ]
       else Incomplete [ CtorBool false ]
+  | CtorUnit :: _ -> Complete [ CtorUnit ]
   | CtorInt _ :: _ | CtorString _ :: _ -> InfiniteOrUnknown
   | CtorTuple n :: _ -> Complete [ CtorTuple n ]
   | Ctor ("{record}", n) :: _ -> Complete [ Ctor ("{record}", n) ]
@@ -193,6 +199,10 @@ let rec useful (sig_env : Pattern.signature_env) (m : matrix) (vec : Pattern.pat
           let target = CtorString s in
           let specialized = specialize_matrix target m in
           useful sig_env specialized rest_vec None
+      | PLit Unit ->
+          let target = CtorUnit in
+          let specialized = specialize_matrix target m in
+          useful sig_env specialized rest_vec None
       | PTuple elems ->
           let target = CtorTuple (List.length elems) in
           let specialized = specialize_matrix target m in
@@ -217,7 +227,7 @@ let rec useful (sig_env : Pattern.signature_env) (m : matrix) (vec : Pattern.pat
                     match ctor with
                     | Ctor (_, a) -> a
                     | CtorTuple a -> a
-                    | CtorBool _ | CtorInt _ | CtorString _ -> 0
+                    | CtorBool _ | CtorInt _ | CtorString _ | CtorUnit -> 0
                   in
                   let wilds = List.init arity (fun _ -> Pattern.wildcard ~span:q.span) in
                   useful sig_env specialized (wilds @ rest_vec) None)
@@ -246,7 +256,7 @@ let rec build_witness (sig_env : Pattern.signature_env) (span : Ast.span) (m : m
                   match ctor with
                   | Ctor (_, a) -> a
                   | CtorTuple a -> a
-                  | CtorBool _ | CtorInt _ | CtorString _ -> 0
+                  | CtorBool _ | CtorInt _ | CtorString _ | CtorUnit -> 0
                 in
                 let wilds = List.init arity (fun _ -> Pattern.wildcard ~span) in
                 match build_witness sig_env span specialized (wilds @ rest_vec) None with
@@ -268,6 +278,7 @@ let rec build_witness (sig_env : Pattern.signature_env) (span : Ast.span) (m : m
                       | CtorBool b -> Pattern.PLit (Ast.Bool b)
                       | CtorInt i -> Pattern.PLit (Ast.Int i)
                       | CtorString s -> Pattern.PLit (Ast.String s)
+                      | CtorUnit -> Pattern.PLit Ast.Unit
                       | CtorTuple _ -> Pattern.PTuple ctor_args
                     in
                     Some ({ Pattern.span; desc = pat_desc } :: remaining_witness)
@@ -284,7 +295,7 @@ let rec build_witness (sig_env : Pattern.signature_env) (span : Ast.span) (m : m
                     match missing with
                     | Ctor (_, a) -> a
                     | CtorTuple a -> a
-                    | CtorBool _ | CtorInt _ | CtorString _ -> 0
+                    | CtorBool _ | CtorInt _ | CtorString _ | CtorUnit -> 0
                   in
                   let wilds = List.init arity (fun _ -> Pattern.wildcard ~span) in
                   let pat_desc =
@@ -293,6 +304,7 @@ let rec build_witness (sig_env : Pattern.signature_env) (span : Ast.span) (m : m
                     | CtorBool b -> Pattern.PLit (Ast.Bool b)
                     | CtorInt i -> Pattern.PLit (Ast.Int i)
                     | CtorString s -> Pattern.PLit (Ast.String s)
+                    | CtorUnit -> Pattern.PLit Ast.Unit
                     | CtorTuple _ -> Pattern.PTuple wilds
                   in
                   Some ({ Pattern.span; desc = pat_desc } :: rest_w)

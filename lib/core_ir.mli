@@ -2,7 +2,7 @@
     intermediate language following desugaring and normalization passes. Enforces Law 3
     (Strict Source Provenance) with mandatory span retention on every node. *)
 
-type literal = Ast.literal = Int of int | Bool of bool | String of string
+type literal = Ast.literal = Int of int | Bool of bool | String of string | Unit
 type primop = Add | Sub | Mul | Div | Mod | Eq | Neq | Lt | Le | Gt | Ge | Neg | Not
 
 val primop_to_string : primop -> string
