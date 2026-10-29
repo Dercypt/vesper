@@ -112,7 +112,16 @@ let test_closures () =
     "let apply = fun f -> fun x -> f x; let double = fun x -> x * 2; apply double 50;";
   check_int "function composition" 22
     "let compose = fun f -> fun g -> fun x -> f (g x); let mul2 = fun x -> x * 2; let \
-     add1 = fun x -> x + 1; compose mul2 add1 10;"
+     add1 = fun x -> x + 1; compose mul2 add1 10;";
+  check_bool "closure self equality" true "let f x = x + 1; f == (fun x -> x + 1);";
+  check_bool "closure equality ignoring unused bindings" true
+    "let f x = x + 1; let unused = 0; let g x = x + 1; f == g;";
+  check_bool "curried partial application equality" true
+    "let add x y = x + y; let add1 = add 1; let add1_again = add 1; add1 == add1_again;";
+  check_bool "curried partial application inequality" false
+    "let add x y = x + y; let add1 = add 1; let add2 = add 2; add1 == add2;";
+  check_bool "different function body inequality" false
+    "let f x = x + 1; let g x = x + 2; f == g;"
 
 let test_recursion () =
   check_int "factorial 5" 120

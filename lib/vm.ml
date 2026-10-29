@@ -323,10 +323,36 @@ let run_vm_outcome ?(fuel = default_fuel) ?(env = []) (main_chunk : Bytecode.chu
       | Opcode.Op_Closure child_idx ->
           let child = Bytecode.get_child !cur_chunk child_idx in
           let base = match !call_stack with [] -> 0 | frame :: _ -> frame.base_sp in
+          let local_lookup name =
+            match Array.find_opt (fun (n, _) -> String.equal n name) child.captures with
+            | Some (_, slot) -> Some !stack.(base + slot)
+            | None -> None
+          in
+          let lookup name =
+            match local_lookup name with
+            | Some v -> Some v
+            | None -> (
+                match List.assoc_opt name !cur_env with
+                | Some v -> Some v
+                | None -> List.assoc_opt name !globals)
+          in
           let captured_env =
-            Array.fold_left
-              (fun env (name, slot) -> (name, !stack.(base + slot)) :: env)
-              !cur_env child.captures
+            match child.body with
+            | Some body ->
+                let fv =
+                  let all_fv = Core_ir.free_vars body in
+                  match child.param with
+                  | Some p -> List.filter (fun v -> not (String.equal v p)) all_fv
+                  | None -> all_fv
+                in
+                List.filter_map
+                  (fun name ->
+                    match lookup name with Some v -> Some (name, v) | None -> None)
+                  fv
+            | None ->
+                Array.fold_left
+                  (fun env (name, slot) -> (name, !stack.(base + slot)) :: env)
+                  !cur_env child.captures
           in
           let closure_val =
             Value.VBytecodeClosure { chunk = child; env = captured_env }

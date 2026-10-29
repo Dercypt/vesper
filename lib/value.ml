@@ -88,9 +88,7 @@ let rec equal_chunk c1 c2 =
   let body_eq = Option.equal Core_ir.expr_equal c1.body c2.body in
   let captures_eq =
     Array.length c1.captures = Array.length c2.captures
-    && Array.for_all2
-         (fun (s1, i1) (s2, i2) -> String.equal s1 s2 && i1 = i2)
-         c1.captures c2.captures
+    && Array.for_all2 (fun (s1, _) (s2, _) -> String.equal s1 s2) c1.captures c2.captures
   in
   code_eq && const_eq && children_eq && param_eq && body_eq && captures_eq
 

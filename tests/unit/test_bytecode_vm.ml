@@ -241,6 +241,118 @@ let test_bytecode_closure_operations () =
   let clos2 = Value.bytecode_closure ~chunk ~env:[] in
   Alcotest.(check bool) "equal closure self" true (Value.equal clos clos2)
 
+let test_core_ir_free_vars () =
+  let span = dummy_span in
+  let mk_var name = Core_ir.make_expr ~span (Var name) in
+  let mk_int n = Core_ir.make_expr ~span (Lit (Int n)) in
+  let mk_add a b = Core_ir.make_expr ~span (PrimOp { op = Add; args = [ a; b ] }) in
+  (* Literals *)
+  Alcotest.(check (list string)) "lit has no free vars" [] (Core_ir.free_vars (mk_int 42));
+  (* Var *)
+  Alcotest.(check (list string))
+    "var has free var" [ "x" ]
+    (Core_ir.free_vars (mk_var "x"));
+  (* PrimOp *)
+  Alcotest.(check (list string))
+    "primop combines free vars" [ "x"; "y" ]
+    (Core_ir.free_vars (mk_add (mk_var "y") (mk_var "x")));
+  (* Fun binds parameter *)
+  let fun1 =
+    Core_ir.make_expr ~span (Fun { param = "x"; body = mk_add (mk_var "x") (mk_int 1) })
+  in
+  Alcotest.(check (list string)) "fun binds param" [] (Core_ir.free_vars fun1);
+  (* Curried inner fun retains outer param *)
+  let inner_body = mk_add (mk_var "x") (mk_var "y") in
+  let inner_fun = Core_ir.make_expr ~span (Fun { param = "y"; body = inner_body }) in
+  Alcotest.(check (list string))
+    "inner fun free vars" [ "x" ] (Core_ir.free_vars inner_fun);
+  let outer_fun = Core_ir.make_expr ~span (Fun { param = "x"; body = inner_fun }) in
+  Alcotest.(check (list string)) "outer fun binds both" [] (Core_ir.free_vars outer_fun);
+  (* Let binding *)
+  let let_nonrec =
+    Core_ir.make_expr ~span
+      (Let
+         {
+           name = "a";
+           is_rec = false;
+           value = mk_var "z";
+           body = mk_add (mk_var "a") (mk_var "b");
+         })
+  in
+  Alcotest.(check (list string))
+    "let nonrec free vars" [ "b"; "z" ]
+    (Core_ir.free_vars let_nonrec);
+  (* Let rec binding *)
+  let let_rec =
+    Core_ir.make_expr ~span
+      (Let
+         {
+           name = "f";
+           is_rec = true;
+           value = mk_add (mk_var "f") (mk_var "k");
+           body = mk_var "f";
+         })
+  in
+  Alcotest.(check (list string)) "let rec free vars" [ "k" ] (Core_ir.free_vars let_rec)
+
+let test_compiler_free_var_captures () =
+  let src = "let unused = 0; let f x = x + 1; f;" in
+  match Parse_facade.parse_string ~file:"<test>" src with
+  | Error diag -> Alcotest.fail diag.message
+  | Ok ast -> (
+      (match Compiler.compile ast with
+      | Error err -> Alcotest.fail err.message
+      | Ok main_chunk ->
+          Alcotest.(check int) "main has child chunk" 1 (Array.length main_chunk.children);
+          let fn_chunk = main_chunk.children.(0) in
+          Alcotest.(check int)
+            "f chunk captures nothing" 0
+            (Array.length fn_chunk.captures));
+      let src2 = "let f a b = let add_a x = a + x in add_a;" in
+      match Parse_facade.parse_string ~file:"<test>" src2 with
+      | Error diag -> Alcotest.fail diag.message
+      | Ok ast2 -> (
+          match Compiler.compile ast2 with
+          | Error err -> Alcotest.fail err.message
+          | Ok main_chunk2 ->
+              Alcotest.(check int)
+                "main has child chunk" 1
+                (Array.length main_chunk2.children);
+              let f_chunk = main_chunk2.children.(0) in
+              Alcotest.(check int) "f has child chunk" 1 (Array.length f_chunk.children);
+              let add_a_chunk = f_chunk.children.(0) in
+              Alcotest.(check int)
+                "add_a captures only a" 1
+                (Array.length add_a_chunk.captures);
+              let cap_name, _ = add_a_chunk.captures.(0) in
+              Alcotest.(check string) "captured var name is a" "a" cap_name))
+
+let test_bytecode_closure_equality () =
+  let run_vm_check src expected name =
+    match Parse_facade.parse_string ~file:"<test>" src with
+    | Error diag -> Alcotest.fail diag.message
+    | Ok ast -> (
+        match Compiler.compile ast with
+        | Error err -> Alcotest.fail err.message
+        | Ok chunk -> (
+            match VM.run chunk with
+            | Ok (Value.VBool b) -> Alcotest.(check bool) name expected b
+            | Ok other ->
+                Alcotest.fail
+                  (Printf.sprintf "%s: expected bool %b, got %s" name expected
+                     (Value.to_string other))
+            | Error diag -> Alcotest.fail diag.message))
+  in
+  run_vm_check "let f x = x + 1; f == (fun x -> x + 1);" true "vm closure self eq";
+  run_vm_check "let f x = x + 1; let unused = 0; let g x = x + 1; f == g;" true
+    "vm closure unused binding eq";
+  run_vm_check
+    "let add x y = x + y; let add1 = add 1; let add1_again = add 1; add1 == add1_again;"
+    true "vm curried partial app eq";
+  run_vm_check "let add x y = x + y; let add1 = add 1; let add2 = add 2; add1 == add2;"
+    false "vm curried partial app neq";
+  run_vm_check "let f x = x + 1; let g x = x + 2; f == g;" false "vm different body neq"
+
 let () =
   let open Alcotest in
   run "Vesper Bytecode VM Unit Tests"
@@ -259,6 +371,11 @@ let () =
           test_case "Static closures and pre-compiled functions" `Quick
             test_static_closures;
           test_case "Bytecode closure operations" `Quick test_bytecode_closure_operations;
+          test_case "Core IR free variables computation" `Quick test_core_ir_free_vars;
+          test_case "Compiler filters captures to free variables" `Quick
+            test_compiler_free_var_captures;
+          test_case "Bytecode closure equality with filtered environment" `Quick
+            test_bytecode_closure_equality;
         ] );
       ( "Compiler Error Propagation",
         [

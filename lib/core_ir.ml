@@ -222,3 +222,28 @@ let pp_program (fmt : Format.formatter) (p : program) : unit =
 
 let expr_to_string (e : expr) : string = Format.asprintf "%a" pp_expr e
 let to_string (p : program) : string = Format.asprintf "%a" pp_program p
+
+module StringSet = Set.Make (String)
+
+let rec free_vars_set (e : expr) : StringSet.t =
+  match e.desc with
+  | Lit _ -> StringSet.empty
+  | Var id -> StringSet.singleton id
+  | Let { name; is_rec; value; body } ->
+      let body_fv = StringSet.remove name (free_vars_set body) in
+      let val_fv =
+        if is_rec then StringSet.remove name (free_vars_set value)
+        else free_vars_set value
+      in
+      StringSet.union val_fv body_fv
+  | Fun { param; body } -> StringSet.remove param (free_vars_set body)
+  | App { fn; arg } -> StringSet.union (free_vars_set fn) (free_vars_set arg)
+  | PrimOp { args; _ } ->
+      List.fold_left
+        (fun acc a -> StringSet.union acc (free_vars_set a))
+        StringSet.empty args
+  | If { cond; then_branch; else_branch } ->
+      StringSet.union (free_vars_set cond)
+        (StringSet.union (free_vars_set then_branch) (free_vars_set else_branch))
+
+let free_vars (e : expr) : string list = StringSet.elements (free_vars_set e)
